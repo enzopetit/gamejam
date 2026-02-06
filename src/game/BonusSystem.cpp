@@ -4,6 +4,7 @@
 #include "utils/Math.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
 
 namespace {
@@ -53,6 +54,8 @@ void BonusSystem::spawnOnKill(sf::Vector2f pos, float timeValue) {
 }
 
 void BonusSystem::update(float dt, sf::Vector2f playerPos, float playerRadius, float& timeLeft, float& speedBoostTimer, float& rapidFireTimer) {
+    pickupPositions.clear();
+
     for (auto& b : bonuses) {
         b.lifetime -= dt;
         if (b.lifetime <= 0.0f)
@@ -70,6 +73,7 @@ void BonusSystem::update(float dt, sf::Vector2f playerPos, float playerRadius, f
             } else if (b.type == BonusType::RapidFire) {
                 rapidFireTimer = std::max(rapidFireTimer, b.value);
             }
+            pickupPositions.push_back(b.shape.getPosition());
             b.alive = false;
         }
     }
@@ -77,11 +81,27 @@ void BonusSystem::update(float dt, sf::Vector2f playerPos, float playerRadius, f
     bonuses.erase(std::remove_if(bonuses.begin(), bonuses.end(), [](const Bonus& b) { return !b.alive; }), bonuses.end());
 }
 
-void BonusSystem::draw(sf::RenderTarget& target) const {
-    for (const auto& b : bonuses)
-        target.draw(b.shape);
+void BonusSystem::draw(sf::RenderTarget& target, float gameTime) const {
+    for (const auto& b : bonuses) {
+        float pulse = 1.0f + BONUS_PULSE_AMP * std::sin(gameTime * BONUS_PULSE_FREQ + b.lifetime * 10.0f);
+        sf::CircleShape drawn = b.shape;
+        drawn.setScale({pulse, pulse});
+
+        float alpha = std::min(1.0f, b.lifetime / 1.0f);
+        if (b.lifetime < 1.0f) {
+            sf::Color c = drawn.getFillColor();
+            c.a = static_cast<uint8_t>(alpha * 255);
+            drawn.setFillColor(c);
+            sf::Color oc = drawn.getOutlineColor();
+            oc.a = static_cast<uint8_t>(alpha * 255);
+            drawn.setOutlineColor(oc);
+        }
+
+        target.draw(drawn);
+    }
 }
 
 void BonusSystem::clear() {
     bonuses.clear();
+    pickupPositions.clear();
 }

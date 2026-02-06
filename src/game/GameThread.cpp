@@ -42,6 +42,85 @@ void spawnParticles(std::vector<Particle>& particles, sf::Vector2f pos, int coun
     }
 }
 
+void spawnBulletTrail(std::vector<Particle>& particles, sf::Vector2f pos, sf::Color color) {
+    Particle p;
+    p.shape = sf::CircleShape(BULLET_TRAIL_RADIUS);
+    p.shape.setFillColor(color);
+    p.shape.setOrigin({BULLET_TRAIL_RADIUS, BULLET_TRAIL_RADIUS});
+    p.shape.setPosition(pos);
+    float angle = static_cast<float>(std::rand() % 360) * 3.14159f / 180.0f;
+    p.velocity = {std::cos(angle) * 15.0f, std::sin(angle) * 15.0f};
+    p.maxLifetime = BULLET_TRAIL_LIFETIME;
+    p.lifetime = p.maxLifetime;
+    particles.push_back(p);
+}
+
+void drawTomato(sf::RenderWindow& window, const sf::CircleShape& body) {
+    sf::Vector2f pos = body.getPosition();
+    sf::Vector2f sc = body.getScale();
+    float r = PLAYER_RADIUS;
+
+    window.draw(body);
+
+    sf::CircleShape shade(r * 0.7f);
+    shade.setFillColor(sf::Color(180, 30, 30));
+    shade.setOrigin({r * 0.7f, r * 0.7f});
+    shade.setPosition({pos.x + r * 0.15f * sc.x, pos.y + r * 0.2f * sc.y});
+    shade.setScale(sc);
+    window.draw(shade);
+
+    sf::CircleShape highlight(r * 0.25f);
+    highlight.setFillColor(sf::Color(255, 130, 130, 160));
+    highlight.setOrigin({r * 0.25f, r * 0.25f});
+    highlight.setPosition({pos.x - r * 0.35f * sc.x, pos.y - r * 0.35f * sc.y});
+    highlight.setScale(sc);
+    window.draw(highlight);
+
+    sf::CircleShape highlight2(r * 0.12f);
+    highlight2.setFillColor(sf::Color(255, 180, 180, 120));
+    highlight2.setOrigin({r * 0.12f, r * 0.12f});
+    highlight2.setPosition({pos.x - r * 0.2f * sc.x, pos.y - r * 0.5f * sc.y});
+    highlight2.setScale(sc);
+    window.draw(highlight2);
+
+    sf::RectangleShape stem({r * 0.15f, r * 0.4f});
+    stem.setFillColor(sf::Color(80, 140, 40));
+    stem.setOrigin({r * 0.075f, r * 0.4f});
+    stem.setPosition({pos.x, pos.y - r * 0.85f * sc.y});
+    stem.setScale(sc);
+    window.draw(stem);
+
+    sf::ConvexShape leaf1(4);
+    leaf1.setPoint(0, {0.0f, 0.0f});
+    leaf1.setPoint(1, {r * 0.5f, -r * 0.15f});
+    leaf1.setPoint(2, {r * 0.55f, -r * 0.05f});
+    leaf1.setPoint(3, {r * 0.1f, r * 0.1f});
+    leaf1.setFillColor(sf::Color(60, 160, 40));
+    leaf1.setPosition({pos.x, pos.y - r * 0.85f * sc.y});
+    leaf1.setScale(sc);
+    window.draw(leaf1);
+
+    sf::ConvexShape leaf2(4);
+    leaf2.setPoint(0, {0.0f, 0.0f});
+    leaf2.setPoint(1, {-r * 0.45f, -r * 0.2f});
+    leaf2.setPoint(2, {-r * 0.5f, -r * 0.08f});
+    leaf2.setPoint(3, {-r * 0.08f, r * 0.1f});
+    leaf2.setFillColor(sf::Color(50, 150, 35));
+    leaf2.setPosition({pos.x, pos.y - r * 0.85f * sc.y});
+    leaf2.setScale(sc);
+    window.draw(leaf2);
+
+    sf::ConvexShape leaf3(4);
+    leaf3.setPoint(0, {0.0f, 0.0f});
+    leaf3.setPoint(1, {r * 0.3f, -r * 0.3f});
+    leaf3.setPoint(2, {r * 0.35f, -r * 0.18f});
+    leaf3.setPoint(3, {r * 0.05f, r * 0.05f});
+    leaf3.setFillColor(sf::Color(70, 170, 45));
+    leaf3.setPosition({pos.x - r * 0.05f, pos.y - r * 0.9f * sc.y});
+    leaf3.setScale(sc);
+    window.draw(leaf3);
+}
+
 Enemy createEnemy(int type, float difficultyTime) {
     Enemy e;
     float side = static_cast<float>(std::rand() % 4);
@@ -75,6 +154,7 @@ Enemy createEnemy(int type, float difficultyTime) {
     e.shape.setFillColor(e.baseColor);
     e.shape.setOrigin({e.shape.getRadius(), e.shape.getRadius()});
     e.shape.setPosition({x, y});
+    e.spawnAge = 0.0f;
     return e;
 }
 }
@@ -93,6 +173,8 @@ int GameThread::run() {
     std::vector<Bullet> bullets;
     std::vector<Enemy> enemies;
     std::vector<Particle> particles;
+    std::vector<Shockwave> shockwaves;
+    std::vector<FloatingText> floatingTexts;
     BonusSystem bonusSystem;
 
     float timeLeft = TOTAL_TIME;
@@ -106,6 +188,10 @@ int GameThread::run() {
     float shootCooldown = 0.0f;
     float speedBoostTimer = 0.0f;
     float rapidFireTimer = 0.0f;
+    float hitstopTimer = 0.0f;
+    float slowMoTimer = 0.0f;
+    float flashAlpha = 0.0f;
+    float shootSquash = 0.0f;
     LevelManager level;
     GameState state = GameState::Menu;
     int menuIndex = 0;
@@ -171,12 +257,19 @@ int GameThread::run() {
         shootCooldown = 0.0f;
         speedBoostTimer = 0.0f;
         rapidFireTimer = 0.0f;
+        hitstopTimer = 0.0f;
+        slowMoTimer = 0.0f;
+        flashAlpha = 0.0f;
+        shootSquash = 0.0f;
         bullets.clear();
         enemies.clear();
         particles.clear();
+        shockwaves.clear();
+        floatingTexts.clear();
         bonusSystem.clear();
         level.reset();
         player.setPosition({WIN_W / 2.0f, WIN_H / 2.0f});
+        player.setScale({1.0f, 1.0f});
         music.reset(timeLeft);
         music.setVolume(musicVolume);
     };
@@ -187,8 +280,17 @@ int GameThread::run() {
                 menuSound->play();
         };
 
-        float dt = clock.restart().asSeconds();
-        if (dt > 0.05f) dt = 0.05f;
+        float rawDt = clock.restart().asSeconds();
+        if (rawDt > 0.05f) rawDt = 0.05f;
+
+        float dt = rawDt;
+        if (hitstopTimer > 0.0f) {
+            hitstopTimer -= rawDt;
+            dt = 0.0f;
+        } else if (slowMoTimer > 0.0f) {
+            slowMoTimer -= rawDt;
+            dt *= SLOWMO_SCALE;
+        }
 
         while (const auto event = window.pollEvent()) {
             if (event->is<sf::Event::Closed>())
@@ -349,7 +451,7 @@ int GameThread::run() {
         bool waveActive = level.isWaveActive();
         music.update(timeLeft, dt);
 
-        gameTime += dt;
+        gameTime += rawDt;
         if (waveActive) {
             timeLeft -= dt;
             if (timeLeft <= 0.0f) {
@@ -389,8 +491,17 @@ int GameThread::run() {
         sf::Vector2i mousePos = sf::Mouse::getPosition(window);
         sf::Vector2f mousePosF = {static_cast<float>(mousePos.x), static_cast<float>(mousePos.y)};
         sf::Vector2f aimDir = vecNormalize(mousePosF - playerPos);
-        float aimAngle = std::atan2(aimDir.y, aimDir.x) * 180.0f / 3.14159f;
-        player.setRotation(sf::degrees(aimAngle));
+
+        if (shootSquash > 0.0f) {
+            shootSquash -= rawDt;
+            if (shootSquash < 0.0f) shootSquash = 0.0f;
+            float t = shootSquash / SQUASH_DURATION;
+            float sx = 1.0f + (SQUASH_X - 1.0f) * t;
+            float sy = 1.0f + (SQUASH_Y - 1.0f) * t;
+            player.setScale({sx, sy});
+        } else {
+            player.setScale({1.0f, 1.0f});
+        }
 
         shootCooldown -= dt;
         if (waveActive && sf::Mouse::isButtonPressed(sf::Mouse::Button::Left) && shootCooldown <= 0.0f) {
@@ -405,6 +516,7 @@ int GameThread::run() {
                 timeLeft -= BULLET_TIME_COST;
                 shootCooldown = shootInterval;
                 shakeTimer = SHAKE_DURATION * 0.3f;
+                shootSquash = SQUASH_DURATION;
             }
         }
 
@@ -415,6 +527,8 @@ int GameThread::run() {
                 b.shape.setPosition(pos);
                 if (pos.x < -50 || pos.x > WIN_W + 50 || pos.y < -50 || pos.y > WIN_H + 50)
                     b.alive = false;
+                else
+                    spawnBulletTrail(particles, pos, sf::Color(180, 40, 20, 150));
             }
         }
 
@@ -449,6 +563,8 @@ int GameThread::run() {
 
         if (waveActive) {
             for (auto& e : enemies) {
+                e.spawnAge += rawDt;
+
                 sf::Vector2f ePos = e.shape.getPosition();
                 sf::Vector2f dir = vecNormalize(playerPos - ePos);
                 ePos += dir * e.speed * dt;
@@ -497,8 +613,50 @@ int GameThread::run() {
                             float dropValue = e.timeDrop;
                             if (comboCount >= 3)
                                 dropValue *= 1.0f + (comboCount - 2) * 0.25f;
-                            score += static_cast<int>(10 * e.maxHp * (1.0f + comboCount * 0.1f));
+                            int killScore = static_cast<int>(10 * e.maxHp * (1.0f + comboCount * 0.1f));
+                            score += killScore;
                             spawnParticles(particles, e.shape.getPosition(), 20, e.baseColor);
+
+                            bool isBig = e.maxHp >= 5;
+                            hitstopTimer = isBig ? HITSTOP_BIG : HITSTOP_SMALL;
+
+                            if (comboCount >= SLOWMO_COMBO_THRESHOLD || isBig)
+                                slowMoTimer = SLOWMO_DURATION;
+
+                            flashAlpha = FLASH_MAX_ALPHA;
+
+                            Shockwave sw;
+                            sw.position = e.shape.getPosition();
+                            sw.radius = e.shape.getRadius();
+                            sw.maxRadius = SHOCKWAVE_MAX_RADIUS + (isBig ? 40.0f : 0.0f);
+                            sw.maxLifetime = SHOCKWAVE_LIFETIME;
+                            sw.lifetime = sw.maxLifetime;
+                            sw.color = e.baseColor;
+                            shockwaves.push_back(sw);
+
+                            if (fontLoaded) {
+                                FloatingText ft;
+                                ft.position = e.shape.getPosition() + sf::Vector2f(0.0f, -20.0f);
+                                ft.velocity = {0.0f, -FLOATING_TEXT_SPEED};
+                                ft.maxLifetime = FLOATING_TEXT_LIFETIME;
+                                ft.lifetime = ft.maxLifetime;
+                                ft.text = "+" + std::to_string(killScore);
+                                ft.color = sf::Color(255, 255, 100);
+                                ft.size = 18;
+                                floatingTexts.push_back(ft);
+
+                                if (comboCount >= 3) {
+                                    FloatingText ct;
+                                    ct.position = e.shape.getPosition() + sf::Vector2f(0.0f, -40.0f);
+                                    ct.velocity = {0.0f, -FLOATING_TEXT_SPEED * 0.8f};
+                                    ct.maxLifetime = FLOATING_TEXT_LIFETIME;
+                                    ct.lifetime = ct.maxLifetime;
+                                    ct.text = "x" + std::to_string(comboCount);
+                                    ct.color = sf::Color(255, 200, 50);
+                                    ct.size = 22;
+                                    floatingTexts.push_back(ct);
+                                }
+                            }
 
                             bonusSystem.spawnOnKill(e.shape.getPosition(), dropValue);
                             level.onEnemyKilled();
@@ -511,13 +669,35 @@ int GameThread::run() {
 
         if (waveActive) {
             bonusSystem.update(dt, playerPos, PLAYER_RADIUS, timeLeft, speedBoostTimer, rapidFireTimer);
+            for (const auto& pickupPos : bonusSystem.getPickups()) {
+                spawnParticles(particles, pickupPos, 12, sf::Color(255, 255, 200));
+            }
+            bonusSystem.clearPickups();
+        }
+
+        for (auto& sw : shockwaves) {
+            sw.lifetime -= rawDt;
+            if (sw.lifetime <= 0.0f) { sw.alive = false; continue; }
+            float t = 1.0f - sw.lifetime / sw.maxLifetime;
+            sw.radius = sw.maxRadius * t;
+        }
+
+        for (auto& ft : floatingTexts) {
+            ft.lifetime -= rawDt;
+            if (ft.lifetime <= 0.0f) { ft.alive = false; continue; }
+            ft.position += ft.velocity * rawDt;
+        }
+
+        if (flashAlpha > 0.0f) {
+            flashAlpha -= rawDt * (FLASH_MAX_ALPHA / FLASH_DURATION);
+            if (flashAlpha < 0.0f) flashAlpha = 0.0f;
         }
 
         for (auto& p : particles) {
-            p.lifetime -= dt;
+            p.lifetime -= rawDt;
             if (p.lifetime <= 0.0f) { p.alive = false; continue; }
             sf::Vector2f pos = p.shape.getPosition();
-            pos += p.velocity * dt;
+            pos += p.velocity * rawDt;
             p.shape.setPosition(pos);
             p.velocity *= 0.95f;
             float alpha = p.lifetime / p.maxLifetime;
@@ -529,11 +709,15 @@ int GameThread::run() {
         bullets.erase(std::remove_if(bullets.begin(), bullets.end(), [](const Bullet& b) { return !b.alive; }), bullets.end());
         enemies.erase(std::remove_if(enemies.begin(), enemies.end(), [](const Enemy& e) { return !e.alive; }), enemies.end());
         particles.erase(std::remove_if(particles.begin(), particles.end(), [](const Particle& p) { return !p.alive; }), particles.end());
+        shockwaves.erase(std::remove_if(shockwaves.begin(), shockwaves.end(), [](const Shockwave& s) { return !s.alive; }), shockwaves.end());
+        floatingTexts.erase(std::remove_if(floatingTexts.begin(), floatingTexts.end(), [](const FloatingText& f) { return !f.alive; }), floatingTexts.end());
 
         if (level.consumeWaveCompleted()) {
             bullets.clear();
             enemies.clear();
             particles.clear();
+            shockwaves.clear();
+            floatingTexts.clear();
             bonusSystem.clear();
             comboCount = 0;
             comboTimer = 0.0f;
@@ -542,7 +726,7 @@ int GameThread::run() {
 
         sf::Vector2f shakeOffset = {0.0f, 0.0f};
         if (shakeTimer > 0.0f) {
-            shakeTimer -= dt;
+            shakeTimer -= rawDt;
             shakeOffset.x = static_cast<float>((std::rand() % 100) - 50) / 50.0f * SHAKE_INTENSITY;
             shakeOffset.y = static_cast<float>((std::rand() % 100) - 50) / 50.0f * SHAKE_INTENSITY;
         }
@@ -558,14 +742,58 @@ int GameThread::run() {
         view.setCenter(view.getCenter() + shakeOffset);
         window.setView(view);
 
-        bonusSystem.draw(window);
+        bonusSystem.draw(window, gameTime);
+
+        for (const auto& sw : shockwaves) {
+            float t = 1.0f - sw.lifetime / sw.maxLifetime;
+            float alpha = (1.0f - t) * 200.0f;
+            sf::CircleShape ring(sw.radius);
+            ring.setOrigin({sw.radius, sw.radius});
+            ring.setPosition(sw.position);
+            ring.setFillColor(sf::Color::Transparent);
+            sf::Color outlineColor = sw.color;
+            outlineColor.a = static_cast<uint8_t>(std::max(0.0f, alpha));
+            ring.setOutlineColor(outlineColor);
+            float thickness = 3.0f * (1.0f - t);
+            ring.setOutlineThickness(std::max(0.5f, thickness));
+            window.draw(ring);
+        }
+
         for (auto& p : particles)
             window.draw(p.shape);
-        for (auto& e : enemies)
+        for (auto& e : enemies) {
+            float spawnScale = std::min(1.0f, e.spawnAge / ENEMY_SPAWN_DURATION);
+            e.shape.setScale({spawnScale, spawnScale});
             window.draw(e.shape);
+        }
         for (auto& b : bullets)
             window.draw(b.shape);
-        window.draw(player);
+        drawTomato(window, player);
+
+        if (fontLoaded) {
+            for (const auto& ft : floatingTexts) {
+                float alpha = ft.lifetime / ft.maxLifetime;
+                sf::Text text(font, ft.text, ft.size);
+                sf::Color c = ft.color;
+                c.a = static_cast<uint8_t>(alpha * 255);
+                text.setFillColor(c);
+                sf::FloatRect bounds = text.getLocalBounds();
+                text.setOrigin(sf::Vector2f{bounds.position.x + bounds.size.x / 2.0f, bounds.position.y + bounds.size.y / 2.0f});
+                text.setPosition(ft.position);
+                float scale = 0.5f + 0.5f * alpha;
+                text.setScale({scale, scale});
+                window.draw(text);
+            }
+        }
+
+        if (flashAlpha > 0.0f) {
+            sf::RectangleShape flash({static_cast<float>(WIN_W), static_cast<float>(WIN_H)});
+            flash.setFillColor(sf::Color(255, 255, 255, static_cast<uint8_t>(flashAlpha)));
+            window.setView(window.getDefaultView());
+            window.draw(flash);
+            view.setCenter(view.getCenter());
+            window.setView(view);
+        }
 
         window.setView(window.getDefaultView());
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <SFML/Graphics.hpp>
+#include <string>
 
 struct Bullet {
     sf::CircleShape shape;
@@ -17,6 +18,7 @@ struct Enemy {
     bool alive = true;
     float flashTimer = 0.0f;
     sf::Color baseColor;
+    float spawnAge = 0.0f;
 };
 
 struct Particle {
@@ -38,5 +40,26 @@ struct Bonus {
     float value;
     float lifetime;
     BonusType type;
+    bool alive = true;
+};
+
+struct Shockwave {
+    sf::Vector2f position;
+    float radius;
+    float maxRadius;
+    float lifetime;
+    float maxLifetime;
+    sf::Color color;
+    bool alive = true;
+};
+
+struct FloatingText {
+    sf::Vector2f position;
+    sf::Vector2f velocity;
+    float lifetime;
+    float maxLifetime;
+    std::string text;
+    sf::Color color;
+    unsigned int size;
     bool alive = true;
 };
