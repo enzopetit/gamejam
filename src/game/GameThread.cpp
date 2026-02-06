@@ -273,13 +273,6 @@ int GameThread::run() {
             if (menuBgLoaded)
                 window.draw(*menuSprite);
             if (fontLoaded) {
-                sf::Text title(font, "TOMATO BLASTER", 48);
-                title.setFillColor(sf::Color(230, 230, 230));
-                sf::FloatRect tb = title.getLocalBounds();
-                title.setOrigin(sf::Vector2f{tb.position.x + tb.size.x / 2.0f, tb.position.y + tb.size.y / 2.0f});
-                title.setPosition({WIN_W / 2.0f, 140.0f});
-                window.draw(title);
-
                 const char* items[] = {"START", "OPTIONS", "QUIT"};
                 for (int i = 0; i < 3; ++i) {
                     sf::Text t(font, items[i], 28);
