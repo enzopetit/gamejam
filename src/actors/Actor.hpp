@@ -27,9 +27,16 @@ struct Particle {
     bool alive = true;
 };
 
-struct TimeDrop {
+enum class BonusType {
+    Time,
+    Speed,
+    RapidFire
+};
+
+struct Bonus {
     sf::CircleShape shape;
     float value;
-    float lifetime = 3.0f;
+    float lifetime;
+    BonusType type;
     bool alive = true;
 };

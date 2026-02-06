@@ -1,6 +1,7 @@
 #include "game/GameThread.hpp"
 
 #include "actors/Actor.hpp"
+#include "game/BonusSystem.hpp"
 #include "game/GameConfig.hpp"
 #include "utils/FontLoader.hpp"
 #include "utils/Math.hpp"
@@ -81,7 +82,7 @@ int GameThread::run() {
     std::vector<Bullet> bullets;
     std::vector<Enemy> enemies;
     std::vector<Particle> particles;
-    std::vector<TimeDrop> timeDrops;
+    BonusSystem bonusSystem;
 
     float timeLeft = TOTAL_TIME;
     float gameTime = 0.0f;
@@ -93,6 +94,8 @@ int GameThread::run() {
     float shakeTimer = 0.0f;
     bool gameOver = false;
     float shootCooldown = 0.0f;
+    float speedBoostTimer = 0.0f;
+    float rapidFireTimer = 0.0f;
 
     sf::Font font;
     bool fontLoaded = loadFont(font);
@@ -118,9 +121,11 @@ int GameThread::run() {
                     bullets.clear();
                     enemies.clear();
                     particles.clear();
-                    timeDrops.clear();
+                    bonusSystem.clear();
                     player.setPosition({WIN_W / 2.0f, WIN_H / 2.0f});
                     gameOver = false;
+                    speedBoostTimer = 0.0f;
+                    rapidFireTimer = 0.0f;
                 }
             }
         }
@@ -154,6 +159,12 @@ int GameThread::run() {
             gameOver = true;
         }
 
+        if (speedBoostTimer > 0.0f) speedBoostTimer -= dt;
+        if (rapidFireTimer > 0.0f) rapidFireTimer -= dt;
+
+        float speedMult = speedBoostTimer > 0.0f ? SPEED_BONUS_MULT : 1.0f;
+        float shootInterval = rapidFireTimer > 0.0f ? RAPID_FIRE_COOLDOWN : BASE_SHOOT_COOLDOWN;
+
         sf::Vector2f moveDir = {0.0f, 0.0f};
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Z) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up))
             moveDir.y -= 1.0f;
@@ -168,7 +179,7 @@ int GameThread::run() {
             moveDir = vecNormalize(moveDir);
 
         sf::Vector2f playerPos = player.getPosition();
-        playerPos += moveDir * PLAYER_SPEED * dt;
+        playerPos += moveDir * (PLAYER_SPEED * speedMult) * dt;
         playerPos.x = std::clamp(playerPos.x, PLAYER_RADIUS, static_cast<float>(WIN_W) - PLAYER_RADIUS);
         playerPos.y = std::clamp(playerPos.y, PLAYER_RADIUS, static_cast<float>(WIN_H) - PLAYER_RADIUS);
         player.setPosition(playerPos);
@@ -190,7 +201,7 @@ int GameThread::run() {
                 b.velocity = aimDir * BULLET_SPEED;
                 bullets.push_back(b);
                 timeLeft -= BULLET_TIME_COST;
-                shootCooldown = 0.15f;
+                shootCooldown = shootInterval;
                 shakeTimer = SHAKE_DURATION * 0.3f;
             }
         }
@@ -269,37 +280,14 @@ int GameThread::run() {
                         score += static_cast<int>(10 * e.maxHp * (1.0f + comboCount * 0.1f));
                         spawnParticles(particles, e.shape.getPosition(), 20, e.baseColor);
 
-                        TimeDrop td;
-                        td.shape = sf::CircleShape(10.0f);
-                        td.shape.setFillColor(sf::Color(255, 80, 80));
-                        td.shape.setOutlineColor(sf::Color(255, 200, 50));
-                        td.shape.setOutlineThickness(2.0f);
-                        td.shape.setOrigin({10.0f, 10.0f});
-                        td.shape.setPosition(e.shape.getPosition());
-                        td.value = dropValue;
-                        timeDrops.push_back(td);
+                        bonusSystem.spawnOnKill(e.shape.getPosition(), dropValue);
                     }
                     break;
                 }
             }
         }
 
-        for (auto& td : timeDrops) {
-            td.lifetime -= dt;
-            if (td.lifetime <= 0.0f) { td.alive = false; continue; }
-
-            float alpha = std::min(1.0f, td.lifetime / 0.5f);
-            sf::Color c = td.shape.getFillColor();
-            c.a = static_cast<uint8_t>(alpha * 255);
-            td.shape.setFillColor(c);
-
-            float distSq = distanceSq(td.shape.getPosition(), playerPos);
-            if (distSq < (PLAYER_RADIUS + 15.0f) * (PLAYER_RADIUS + 15.0f)) {
-                timeLeft = std::min(TOTAL_TIME, timeLeft + td.value);
-                td.alive = false;
-                spawnParticles(particles, td.shape.getPosition(), 10, sf::Color(255, 200, 50));
-            }
-        }
+        bonusSystem.update(dt, playerPos, PLAYER_RADIUS, timeLeft, speedBoostTimer, rapidFireTimer);
 
         for (auto& p : particles) {
             p.lifetime -= dt;
@@ -317,7 +305,6 @@ int GameThread::run() {
         bullets.erase(std::remove_if(bullets.begin(), bullets.end(), [](const Bullet& b) { return !b.alive; }), bullets.end());
         enemies.erase(std::remove_if(enemies.begin(), enemies.end(), [](const Enemy& e) { return !e.alive; }), enemies.end());
         particles.erase(std::remove_if(particles.begin(), particles.end(), [](const Particle& p) { return !p.alive; }), particles.end());
-        timeDrops.erase(std::remove_if(timeDrops.begin(), timeDrops.end(), [](const TimeDrop& td) { return !td.alive; }), timeDrops.end());
 
         sf::Vector2f shakeOffset = {0.0f, 0.0f};
         if (shakeTimer > 0.0f) {
@@ -337,8 +324,7 @@ int GameThread::run() {
         view.setCenter(view.getCenter() + shakeOffset);
         window.setView(view);
 
-        for (auto& td : timeDrops)
-            window.draw(td.shape);
+        bonusSystem.draw(window);
         for (auto& p : particles)
             window.draw(p.shape);
         for (auto& e : enemies)
@@ -384,6 +370,78 @@ int GameThread::run() {
                 barFill.setFillColor(sf::Color::Green);
             barFill.setPosition({barX, barY});
             window.draw(barFill);
+
+            auto formatBuffTime = [](float value) {
+                if (value < 0.0f) value = 0.0f;
+                int totalTenths = static_cast<int>(std::ceil(value * 10.0f));
+                int whole = totalTenths / 10;
+                int tenths = totalTenths % 10;
+                return std::to_string(whole) + "." + std::to_string(tenths);
+            };
+
+            auto buffFill = [](BonusType type) {
+                if (type == BonusType::Speed) return sf::Color(80, 200, 255);
+                if (type == BonusType::RapidFire) return sf::Color(255, 200, 80);
+                return sf::Color(255, 80, 80);
+            };
+
+            auto buffOutline = [](BonusType type) {
+                if (type == BonusType::Speed) return sf::Color(120, 255, 255);
+                if (type == BonusType::RapidFire) return sf::Color(255, 255, 120);
+                return sf::Color(255, 200, 50);
+            };
+
+            auto buffName = [](BonusType type) {
+                if (type == BonusType::Speed) return std::string("VITESSE");
+                if (type == BonusType::RapidFire) return std::string("RAPIDE");
+                return std::string("TEMPS");
+            };
+
+            float iconSize = 28.0f;
+            float iconGap = 8.0f;
+            float iconX = barX;
+            float iconY = barY + barHeight + 10.0f;
+
+            auto drawBuff = [&](BonusType type, float remaining) {
+                if (remaining <= 0.0f) return;
+                std::string name = buffName(type);
+
+                sf::Text label(font, name, 12);
+                label.setFillColor(sf::Color(230, 230, 230));
+                sf::FloatRect lb = label.getLocalBounds();
+
+                float slotWidth = std::max(iconSize, lb.size.x) + 6.0f;
+                float centerX = iconX + slotWidth / 2.0f;
+
+                sf::RectangleShape icon({iconSize, iconSize});
+                icon.setFillColor(buffFill(type));
+                icon.setOutlineColor(buffOutline(type));
+                icon.setOutlineThickness(2.0f);
+                icon.setPosition({centerX - iconSize / 2.0f, iconY});
+                window.draw(icon);
+
+                sf::Text t(font, formatBuffTime(remaining), 14);
+                t.setFillColor(sf::Color::Black);
+                sf::FloatRect bounds = t.getLocalBounds();
+                t.setOrigin(sf::Vector2f{
+                    bounds.position.x + bounds.size.x / 2.0f,
+                    bounds.position.y + bounds.size.y / 2.0f
+                });
+                t.setPosition({centerX, iconY + iconSize / 2.0f});
+                window.draw(t);
+
+                label.setOrigin(sf::Vector2f{
+                    lb.position.x + lb.size.x / 2.0f,
+                    lb.position.y + lb.size.y / 2.0f
+                });
+                label.setPosition({centerX, iconY + iconSize + 10.0f});
+                window.draw(label);
+
+                iconX += slotWidth + iconGap;
+            };
+
+            drawBuff(BonusType::Speed, speedBoostTimer);
+            drawBuff(BonusType::RapidFire, rapidFireTimer);
 
             sf::Text scoreText(font, "Score: " + std::to_string(score), 24);
             scoreText.setFillColor(sf::Color::White);
