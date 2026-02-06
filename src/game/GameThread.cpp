@@ -9,15 +9,24 @@
 #include "utils/Math.hpp"
 
 #include <SFML/Graphics.hpp>
+#include <SFML/Audio.hpp>
 #include <SFML/System.hpp>
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <ctime>
+#include <optional>
 #include <string>
 #include <vector>
 
 namespace {
+enum class GameState {
+    Menu,
+    Options,
+    Playing,
+    GameOver
+};
+
 void spawnParticles(std::vector<Particle>& particles, sf::Vector2f pos, int count, sf::Color color) {
     for (int i = 0; i < count; i++) {
         Particle p;
@@ -94,58 +103,234 @@ int GameThread::run() {
     int comboCount = 0;
     float comboTimer = 0.0f;
     float shakeTimer = 0.0f;
-    bool gameOver = false;
     float shootCooldown = 0.0f;
     float speedBoostTimer = 0.0f;
     float rapidFireTimer = 0.0f;
     LevelManager level;
+    GameState state = GameState::Menu;
+    int menuIndex = 0;
+    int optionsIndex = 0;
+    float musicVolume = 70.0f;
 
     sf::Font font;
     bool fontLoaded = loadFont(font);
 
+    sf::Texture menuTexture;
+    std::optional<sf::Sprite> menuSprite;
+    bool menuBgLoaded = menuTexture.loadFromFile("assets/Menu.png");
+    if (menuBgLoaded) {
+        menuSprite.emplace(menuTexture);
+        sf::Vector2u size = menuTexture.getSize();
+        if (size.x > 0 && size.y > 0) {
+            menuSprite->setScale(sf::Vector2f{
+                static_cast<float>(WIN_W) / static_cast<float>(size.x),
+                static_cast<float>(WIN_H) / static_cast<float>(size.y)
+            });
+        }
+    }
+
+    sf::SoundBuffer menuBuffer;
+    std::optional<sf::Sound> menuSound;
+    bool menuSoundLoaded = menuBuffer.loadFromFile("music/menu.ogg");
+    if (!menuSoundLoaded)
+        menuSoundLoaded = menuBuffer.loadFromFile("music/Menu.ogg");
+    if (menuSoundLoaded) {
+        menuSound.emplace(menuBuffer);
+        menuSound->setVolume(musicVolume);
+    }
+
+    std::optional<sf::Music> menuMusic;
+    bool menuMusicLoaded = false;
+    menuMusic.emplace();
+    if (!menuMusic->openFromFile("music/menu.ogg") && !menuMusic->openFromFile("music/Menu.ogg")) {
+        menuMusic.reset();
+    } else {
+        menuMusicLoaded = true;
+        menuMusic->setLooping(true);
+        menuMusic->setVolume(musicVolume);
+    }
+    if (menuMusicLoaded)
+        menuSoundLoaded = false;
+
     MusicManager music;
     music.loadFromJson("music/music.json");
-    music.reset(timeLeft);
+    music.setVolume(musicVolume);
+    music.stop();
 
     sf::Clock clock;
 
+    auto resetGame = [&]() {
+        timeLeft = TOTAL_TIME;
+        gameTime = 0.0f;
+        spawnTimer = 0.0f;
+        spawnInterval = SPAWN_INTERVAL_START;
+        score = 0;
+        comboCount = 0;
+        comboTimer = 0.0f;
+        shakeTimer = 0.0f;
+        shootCooldown = 0.0f;
+        speedBoostTimer = 0.0f;
+        rapidFireTimer = 0.0f;
+        bullets.clear();
+        enemies.clear();
+        particles.clear();
+        bonusSystem.clear();
+        level.reset();
+        player.setPosition({WIN_W / 2.0f, WIN_H / 2.0f});
+        music.reset(timeLeft);
+        music.setVolume(musicVolume);
+    };
+
     while (window.isOpen()) {
+        auto playMenuSound = [&]() {
+            if (menuSoundLoaded)
+                menuSound->play();
+        };
+
         float dt = clock.restart().asSeconds();
         if (dt > 0.05f) dt = 0.05f;
-
-        level.update(dt);
-        bool waveActive = level.isWaveActive();
 
         while (const auto event = window.pollEvent()) {
             if (event->is<sf::Event::Closed>())
                 window.close();
             if (const auto* key = event->getIf<sf::Event::KeyPressed>()) {
-                if (key->code == sf::Keyboard::Key::Escape)
-                    window.close();
-                if (gameOver && key->code == sf::Keyboard::Key::R) {
-                    timeLeft = TOTAL_TIME;
-                    gameTime = 0.0f;
-                    score = 0;
-                    comboCount = 0;
-                    spawnInterval = SPAWN_INTERVAL_START;
-                    bullets.clear();
-                    enemies.clear();
-                    particles.clear();
-                    bonusSystem.clear();
-                    player.setPosition({WIN_W / 2.0f, WIN_H / 2.0f});
-                    gameOver = false;
-                    speedBoostTimer = 0.0f;
-                    rapidFireTimer = 0.0f;
-                    spawnTimer = 0.0f;
-                    level.reset();
-                    music.reset(timeLeft);
+                if (state == GameState::Menu) {
+                    if (key->code == sf::Keyboard::Key::Escape)
+                        window.close();
+                    else if (key->code == sf::Keyboard::Key::Up || key->code == sf::Keyboard::Key::Z || key->code == sf::Keyboard::Key::W) {
+                        menuIndex = (menuIndex + 2) % 3;
+                        playMenuSound();
+                    } else if (key->code == sf::Keyboard::Key::Down || key->code == sf::Keyboard::Key::S) {
+                        menuIndex = (menuIndex + 1) % 3;
+                        playMenuSound();
+                    }
+                    else if (key->code == sf::Keyboard::Key::Enter || key->code == sf::Keyboard::Key::Space) {
+                        playMenuSound();
+                        if (menuIndex == 0) {
+                            if (menuMusicLoaded)
+                                menuMusic->stop();
+                            resetGame();
+                            state = GameState::Playing;
+                        } else if (menuIndex == 1) {
+                            state = GameState::Options;
+                        } else if (menuIndex == 2) {
+                            window.close();
+                        }
+                    }
+                } else if (state == GameState::Options) {
+                    if (key->code == sf::Keyboard::Key::Escape)
+                        state = GameState::Menu;
+                    else if (key->code == sf::Keyboard::Key::Up || key->code == sf::Keyboard::Key::Z || key->code == sf::Keyboard::Key::W) {
+                        optionsIndex = (optionsIndex + 1) % 2;
+                        playMenuSound();
+                    } else if (key->code == sf::Keyboard::Key::Down || key->code == sf::Keyboard::Key::S) {
+                        optionsIndex = (optionsIndex + 1) % 2;
+                        playMenuSound();
+                    } else if (optionsIndex == 0 && (key->code == sf::Keyboard::Key::Left || key->code == sf::Keyboard::Key::Q || key->code == sf::Keyboard::Key::A)) {
+                        musicVolume = std::max(0.0f, musicVolume - 5.0f);
+                        music.setVolume(musicVolume);
+                        if (menuSoundLoaded)
+                            menuSound->setVolume(musicVolume);
+                        if (menuMusicLoaded)
+                            menuMusic->setVolume(musicVolume);
+                        playMenuSound();
+                    } else if (optionsIndex == 0 && (key->code == sf::Keyboard::Key::Right || key->code == sf::Keyboard::Key::D)) {
+                        musicVolume = std::min(100.0f, musicVolume + 5.0f);
+                        music.setVolume(musicVolume);
+                        if (menuSoundLoaded)
+                            menuSound->setVolume(musicVolume);
+                        if (menuMusicLoaded)
+                            menuMusic->setVolume(musicVolume);
+                        playMenuSound();
+                    } else if (key->code == sf::Keyboard::Key::Enter || key->code == sf::Keyboard::Key::Space) {
+                        playMenuSound();
+                        if (optionsIndex == 1)
+                            state = GameState::Menu;
+                    }
+                } else if (state == GameState::Playing) {
+                    if (key->code == sf::Keyboard::Key::Escape) {
+                        state = GameState::Menu;
+                        music.stop();
+                    }
+                } else if (state == GameState::GameOver) {
+                    if (key->code == sf::Keyboard::Key::R || key->code == sf::Keyboard::Key::Enter) {
+                        if (menuMusicLoaded)
+                            menuMusic->stop();
+                        resetGame();
+                        state = GameState::Playing;
+                    } else if (key->code == sf::Keyboard::Key::Escape) {
+                        state = GameState::Menu;
+                        music.stop();
+                    }
                 }
             }
         }
 
-        music.update(timeLeft);
+        if (state == GameState::Menu) {
+            if (menuMusicLoaded && menuMusic->getStatus() != sf::SoundSource::Status::Playing)
+                menuMusic->play();
+            window.clear(sf::Color(20, 15, 25));
+            if (menuBgLoaded)
+                window.draw(*menuSprite);
+            if (fontLoaded) {
+                sf::Text title(font, "TOMATO BLASTER", 48);
+                title.setFillColor(sf::Color(230, 230, 230));
+                sf::FloatRect tb = title.getLocalBounds();
+                title.setOrigin(sf::Vector2f{tb.position.x + tb.size.x / 2.0f, tb.position.y + tb.size.y / 2.0f});
+                title.setPosition({WIN_W / 2.0f, 140.0f});
+                window.draw(title);
 
-        if (gameOver) {
+                const char* items[] = {"START", "OPTIONS", "QUIT"};
+                for (int i = 0; i < 3; ++i) {
+                    sf::Text t(font, items[i], 28);
+                    t.setFillColor(i == menuIndex ? sf::Color(255, 220, 120) : sf::Color(220, 220, 220));
+                    sf::FloatRect b = t.getLocalBounds();
+                    t.setOrigin(sf::Vector2f{b.position.x + b.size.x / 2.0f, b.position.y + b.size.y / 2.0f});
+                    t.setPosition({WIN_W / 2.0f, 260.0f + i * 46.0f});
+                    window.draw(t);
+                }
+            }
+            window.display();
+            continue;
+        }
+
+        if (state == GameState::Options) {
+            if (menuMusicLoaded && menuMusic->getStatus() != sf::SoundSource::Status::Playing)
+                menuMusic->play();
+            window.clear(sf::Color(18, 14, 22));
+            if (menuBgLoaded) {
+                menuSprite->setColor(sf::Color(200, 200, 200));
+                window.draw(*menuSprite);
+                menuSprite->setColor(sf::Color::White);
+            }
+            if (fontLoaded) {
+                sf::Text title(font, "OPTIONS", 42);
+                title.setFillColor(sf::Color(230, 230, 230));
+                sf::FloatRect tb = title.getLocalBounds();
+                title.setOrigin(sf::Vector2f{tb.position.x + tb.size.x / 2.0f, tb.position.y + tb.size.y / 2.0f});
+                title.setPosition({WIN_W / 2.0f, 140.0f});
+                window.draw(title);
+
+                std::string vol = "MUSIC VOLUME: " + std::to_string(static_cast<int>(musicVolume));
+                sf::Text volText(font, vol, 24);
+                volText.setFillColor(optionsIndex == 0 ? sf::Color(255, 220, 120) : sf::Color(220, 220, 220));
+                sf::FloatRect vb = volText.getLocalBounds();
+                volText.setOrigin(sf::Vector2f{vb.position.x + vb.size.x / 2.0f, vb.position.y + vb.size.y / 2.0f});
+                volText.setPosition({WIN_W / 2.0f, 260.0f});
+                window.draw(volText);
+
+                sf::Text backText(font, "BACK", 24);
+                backText.setFillColor(optionsIndex == 1 ? sf::Color(255, 220, 120) : sf::Color(220, 220, 220));
+                sf::FloatRect bb = backText.getLocalBounds();
+                backText.setOrigin(sf::Vector2f{bb.position.x + bb.size.x / 2.0f, bb.position.y + bb.size.y / 2.0f});
+                backText.setPosition({WIN_W / 2.0f, 306.0f});
+                window.draw(backText);
+            }
+            window.display();
+            continue;
+        }
+
+        if (state == GameState::GameOver) {
             window.clear(sf::Color(30, 10, 10));
             if (fontLoaded) {
                 sf::Text gameOverText(font, "GAME OVER", 60);
@@ -167,12 +352,17 @@ int GameThread::run() {
             continue;
         }
 
+        level.update(dt);
+        bool waveActive = level.isWaveActive();
+        music.update(timeLeft, dt);
+
         gameTime += dt;
         if (waveActive) {
             timeLeft -= dt;
             if (timeLeft <= 0.0f) {
                 timeLeft = 0.0f;
-                gameOver = true;
+                state = GameState::GameOver;
+                continue;
             }
         }
 
