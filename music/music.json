@@ -1,0 +1,10 @@
+{
+  "begin": "music/BGM_Begin_Level.ogg",
+  "per_minute": {
+    "5": "music/BGM_05.ogg",
+    "4": "music/BGM_04.ogg",
+    "3": "music/BGM_03.ogg",
+    "2": "music/BGM_02.ogg",
+    "1": "music/BGM_01.ogg"
+  }
+}

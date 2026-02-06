@@ -1,8 +1,10 @@
 #include "game/GameThread.hpp"
 
 #include "actors/Actor.hpp"
+#include "audio/MusicManager.hpp"
 #include "game/BonusSystem.hpp"
 #include "game/GameConfig.hpp"
+#include "game/LevelManager.hpp"
 #include "utils/FontLoader.hpp"
 #include "utils/Math.hpp"
 
@@ -31,7 +33,7 @@ void spawnParticles(std::vector<Particle>& particles, sf::Vector2f pos, int coun
     }
 }
 
-Enemy createEnemy(int type, float gameTime) {
+Enemy createEnemy(int type, float difficultyTime) {
     Enemy e;
     float side = static_cast<float>(std::rand() % 4);
     float x, y;
@@ -40,7 +42,7 @@ Enemy createEnemy(int type, float gameTime) {
     else if (side < 3) { x = static_cast<float>(std::rand() % WIN_W); y = -30; }
     else { x = static_cast<float>(std::rand() % WIN_W); y = WIN_H + 30.0f; }
 
-    float speedMult = 1.0f + gameTime / 120.0f;
+    float speedMult = 1.0f + difficultyTime / 120.0f;
 
     if (type == 0) {
         e.shape = sf::CircleShape(12.0f);
@@ -96,15 +98,23 @@ int GameThread::run() {
     float shootCooldown = 0.0f;
     float speedBoostTimer = 0.0f;
     float rapidFireTimer = 0.0f;
+    LevelManager level;
 
     sf::Font font;
     bool fontLoaded = loadFont(font);
+
+    MusicManager music;
+    music.loadFromJson("music/music.json");
+    music.reset(timeLeft);
 
     sf::Clock clock;
 
     while (window.isOpen()) {
         float dt = clock.restart().asSeconds();
         if (dt > 0.05f) dt = 0.05f;
+
+        level.update(dt);
+        bool waveActive = level.isWaveActive();
 
         while (const auto event = window.pollEvent()) {
             if (event->is<sf::Event::Closed>())
@@ -126,9 +136,14 @@ int GameThread::run() {
                     gameOver = false;
                     speedBoostTimer = 0.0f;
                     rapidFireTimer = 0.0f;
+                    spawnTimer = 0.0f;
+                    level.reset();
+                    music.reset(timeLeft);
                 }
             }
         }
+
+        music.update(timeLeft);
 
         if (gameOver) {
             window.clear(sf::Color(30, 10, 10));
@@ -153,14 +168,18 @@ int GameThread::run() {
         }
 
         gameTime += dt;
-        timeLeft -= dt;
-        if (timeLeft <= 0.0f) {
-            timeLeft = 0.0f;
-            gameOver = true;
+        if (waveActive) {
+            timeLeft -= dt;
+            if (timeLeft <= 0.0f) {
+                timeLeft = 0.0f;
+                gameOver = true;
+            }
         }
 
-        if (speedBoostTimer > 0.0f) speedBoostTimer -= dt;
-        if (rapidFireTimer > 0.0f) rapidFireTimer -= dt;
+        if (waveActive) {
+            if (speedBoostTimer > 0.0f) speedBoostTimer -= dt;
+            if (rapidFireTimer > 0.0f) rapidFireTimer -= dt;
+        }
 
         float speedMult = speedBoostTimer > 0.0f ? SPEED_BONUS_MULT : 1.0f;
         float shootInterval = rapidFireTimer > 0.0f ? RAPID_FIRE_COOLDOWN : BASE_SHOOT_COOLDOWN;
@@ -191,7 +210,7 @@ int GameThread::run() {
         player.setRotation(sf::degrees(aimAngle));
 
         shootCooldown -= dt;
-        if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left) && shootCooldown <= 0.0f) {
+        if (waveActive && sf::Mouse::isButtonPressed(sf::Mouse::Button::Left) && shootCooldown <= 0.0f) {
             if (timeLeft > BULLET_TIME_COST) {
                 Bullet b;
                 b.shape = sf::CircleShape(BULLET_RADIUS);
@@ -206,88 +225,110 @@ int GameThread::run() {
             }
         }
 
-        for (auto& b : bullets) {
-            sf::Vector2f pos = b.shape.getPosition();
-            pos += b.velocity * dt;
-            b.shape.setPosition(pos);
-            if (pos.x < -50 || pos.x > WIN_W + 50 || pos.y < -50 || pos.y > WIN_H + 50)
-                b.alive = false;
-        }
-
-        spawnTimer += dt;
-        spawnInterval = std::max(SPAWN_INTERVAL_MIN, SPAWN_INTERVAL_START - gameTime / 60.0f);
-        if (spawnTimer >= spawnInterval) {
-            spawnTimer = 0.0f;
-            int type;
-            int roll = std::rand() % 100;
-            if (gameTime < 30.0f) {
-                type = 0;
-            } else if (gameTime < 60.0f) {
-                type = (roll < 70) ? 0 : 1;
-            } else {
-                if (roll < 50) type = 0;
-                else if (roll < 85) type = 1;
-                else type = 2;
-            }
-            enemies.push_back(createEnemy(type, gameTime));
-        }
-
-        for (auto& e : enemies) {
-            sf::Vector2f ePos = e.shape.getPosition();
-            sf::Vector2f dir = vecNormalize(playerPos - ePos);
-            ePos += dir * e.speed * dt;
-            e.shape.setPosition(ePos);
-
-            if (e.flashTimer > 0.0f) {
-                e.flashTimer -= dt;
-                if (e.flashTimer <= 0.0f)
-                    e.shape.setFillColor(e.baseColor);
-            }
-
-            float collDist = PLAYER_RADIUS + e.shape.getRadius();
-            if (distanceSq(ePos, playerPos) < collDist * collDist) {
-                timeLeft -= 3.0f;
-                e.alive = false;
-                shakeTimer = SHAKE_DURATION;
-                spawnParticles(particles, ePos, 15, sf::Color(200, 50, 50));
-            }
-        }
-
-        comboTimer -= dt;
-        if (comboTimer <= 0.0f) comboCount = 0;
-
-        for (auto& b : bullets) {
-            if (!b.alive) continue;
-            sf::Vector2f bPos = b.shape.getPosition();
-            for (auto& e : enemies) {
-                if (!e.alive) continue;
-                float collDist = BULLET_RADIUS + e.shape.getRadius();
-                if (distanceSq(bPos, e.shape.getPosition()) < collDist * collDist) {
+        if (waveActive) {
+            for (auto& b : bullets) {
+                sf::Vector2f pos = b.shape.getPosition();
+                pos += b.velocity * dt;
+                b.shape.setPosition(pos);
+                if (pos.x < -50 || pos.x > WIN_W + 50 || pos.y < -50 || pos.y > WIN_H + 50)
                     b.alive = false;
-                    e.hp -= 1.0f;
-                    e.flashTimer = 0.08f;
-                    e.shape.setFillColor(sf::Color::White);
-                    shakeTimer = SHAKE_DURATION * 0.5f;
-                    spawnParticles(particles, bPos, 8, sf::Color(220, 50, 30));
+            }
+        }
 
-                    if (e.hp <= 0.0f) {
-                        e.alive = false;
-                        comboCount++;
-                        comboTimer = 1.0f;
-                        float dropValue = e.timeDrop;
-                        if (comboCount >= 3)
-                            dropValue *= 1.0f + (comboCount - 2) * 0.25f;
-                        score += static_cast<int>(10 * e.maxHp * (1.0f + comboCount * 0.1f));
-                        spawnParticles(particles, e.shape.getPosition(), 20, e.baseColor);
-
-                        bonusSystem.spawnOnKill(e.shape.getPosition(), dropValue);
+        if (waveActive) {
+            spawnTimer += dt;
+            float spawnBias = static_cast<float>(level.waveIndex()) * 0.05f;
+            float timePressure = 1.0f - (timeLeft / TOTAL_TIME);
+            float pressureBoost = TIME_LEFT_SPAWN_BOOST * timePressure;
+            spawnInterval = std::max(SPAWN_INTERVAL_MIN, SPAWN_INTERVAL_START - level.waveTime() / 60.0f - spawnBias - pressureBoost);
+            if (spawnTimer >= spawnInterval) {
+                spawnTimer = 0.0f;
+                int waveBonus = level.waveIndex() / 3;
+                int pressureBonus = static_cast<int>(timePressure * 2.0f);
+                int spawnCount = std::clamp(1 + waveBonus + pressureBonus, 1, 5);
+                for (int i = 0; i < spawnCount; ++i) {
+                    int type;
+                    int roll = std::rand() % 100;
+                    if (level.waveIndex() < 2) {
+                        type = 0;
+                    } else if (level.waveIndex() < 4) {
+                        type = (roll < 70) ? 0 : 1;
+                    } else {
+                        if (roll < 50) type = 0;
+                        else if (roll < 85) type = 1;
+                        else type = 2;
                     }
-                    break;
+                    float difficultyTime = level.waveTime() + static_cast<float>(level.waveIndex()) * 20.0f;
+                    enemies.push_back(createEnemy(type, difficultyTime));
                 }
             }
         }
 
-        bonusSystem.update(dt, playerPos, PLAYER_RADIUS, timeLeft, speedBoostTimer, rapidFireTimer);
+        if (waveActive) {
+            for (auto& e : enemies) {
+                sf::Vector2f ePos = e.shape.getPosition();
+                sf::Vector2f dir = vecNormalize(playerPos - ePos);
+                ePos += dir * e.speed * dt;
+                e.shape.setPosition(ePos);
+
+                if (e.flashTimer > 0.0f) {
+                    e.flashTimer -= dt;
+                    if (e.flashTimer <= 0.0f)
+                        e.shape.setFillColor(e.baseColor);
+                }
+
+                float collDist = PLAYER_RADIUS + e.shape.getRadius();
+                if (distanceSq(ePos, playerPos) < collDist * collDist) {
+                    timeLeft -= 3.0f;
+                    e.alive = false;
+                    shakeTimer = SHAKE_DURATION;
+                    spawnParticles(particles, ePos, 15, sf::Color(200, 50, 50));
+                }
+            }
+        }
+
+        if (waveActive) {
+            comboTimer -= dt;
+            if (comboTimer <= 0.0f) comboCount = 0;
+        }
+
+        if (waveActive) {
+            for (auto& b : bullets) {
+                if (!b.alive) continue;
+                sf::Vector2f bPos = b.shape.getPosition();
+                for (auto& e : enemies) {
+                    if (!e.alive) continue;
+                    float collDist = BULLET_RADIUS + e.shape.getRadius();
+                    if (distanceSq(bPos, e.shape.getPosition()) < collDist * collDist) {
+                        b.alive = false;
+                        e.hp -= 1.0f;
+                        e.flashTimer = 0.08f;
+                        e.shape.setFillColor(sf::Color::White);
+                        shakeTimer = SHAKE_DURATION * 0.5f;
+                        spawnParticles(particles, bPos, 8, sf::Color(220, 50, 30));
+
+                        if (e.hp <= 0.0f) {
+                            e.alive = false;
+                            comboCount++;
+                            comboTimer = 1.0f;
+                            float dropValue = e.timeDrop;
+                            if (comboCount >= 3)
+                                dropValue *= 1.0f + (comboCount - 2) * 0.25f;
+                            score += static_cast<int>(10 * e.maxHp * (1.0f + comboCount * 0.1f));
+                            spawnParticles(particles, e.shape.getPosition(), 20, e.baseColor);
+
+                            bonusSystem.spawnOnKill(e.shape.getPosition(), dropValue);
+                            level.onEnemyKilled();
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (waveActive) {
+            bonusSystem.update(dt, playerPos, PLAYER_RADIUS, timeLeft, speedBoostTimer, rapidFireTimer);
+        }
 
         for (auto& p : particles) {
             p.lifetime -= dt;
@@ -305,6 +346,16 @@ int GameThread::run() {
         bullets.erase(std::remove_if(bullets.begin(), bullets.end(), [](const Bullet& b) { return !b.alive; }), bullets.end());
         enemies.erase(std::remove_if(enemies.begin(), enemies.end(), [](const Enemy& e) { return !e.alive; }), enemies.end());
         particles.erase(std::remove_if(particles.begin(), particles.end(), [](const Particle& p) { return !p.alive; }), particles.end());
+
+        if (level.consumeWaveCompleted()) {
+            bullets.clear();
+            enemies.clear();
+            particles.clear();
+            bonusSystem.clear();
+            comboCount = 0;
+            comboTimer = 0.0f;
+            spawnTimer = 0.0f;
+        }
 
         sf::Vector2f shakeOffset = {0.0f, 0.0f};
         if (shakeTimer > 0.0f) {
@@ -442,6 +493,66 @@ int GameThread::run() {
 
             drawBuff(BonusType::Speed, speedBoostTimer);
             drawBuff(BonusType::RapidFire, rapidFireTimer);
+
+            auto formatWaveTime = [](float value) {
+                if (value < 0.0f) value = 0.0f;
+                int totalTenths = static_cast<int>(std::ceil(value * 10.0f));
+                int whole = totalTenths / 10;
+                int tenths = totalTenths % 10;
+                return std::to_string(whole) + "." + std::to_string(tenths);
+            };
+
+            float objectiveY = iconY + iconSize + 26.0f;
+            if (level.isIntermission()) {
+                std::string inter = "VAGUE TERMINEE";
+                sf::Text interText(font, inter, 18);
+                interText.setFillColor(sf::Color(230, 230, 230));
+                sf::FloatRect ib = interText.getLocalBounds();
+                interText.setOrigin(sf::Vector2f{
+                    ib.position.x + ib.size.x / 2.0f,
+                    ib.position.y + ib.size.y / 2.0f
+                });
+                interText.setPosition({WIN_W / 2.0f, objectiveY});
+                window.draw(interText);
+
+                std::string next = "PROCHAINE VAGUE DANS " + formatWaveTime(level.intermissionLeft()) + "s";
+                sf::Text nextText(font, next, 16);
+                nextText.setFillColor(sf::Color(200, 200, 200));
+                sf::FloatRect nb = nextText.getLocalBounds();
+                nextText.setOrigin(sf::Vector2f{
+                    nb.position.x + nb.size.x / 2.0f,
+                    nb.position.y + nb.size.y / 2.0f
+                });
+                nextText.setPosition({WIN_W / 2.0f, objectiveY + 22.0f});
+                window.draw(nextText);
+            } else {
+                std::string header = "VAGUE " + std::to_string(level.waveIndex() + 1) + "  OBJECTIF";
+                sf::Text headerText(font, header, 16);
+                headerText.setFillColor(sf::Color(220, 220, 220));
+                sf::FloatRect hb = headerText.getLocalBounds();
+                headerText.setOrigin(sf::Vector2f{
+                    hb.position.x + hb.size.x / 2.0f,
+                    hb.position.y + hb.size.y / 2.0f
+                });
+                headerText.setPosition({WIN_W / 2.0f, objectiveY});
+                window.draw(headerText);
+
+                std::string obj;
+                if (level.objectiveType() == LevelManager::ObjectiveType::Kill) {
+                    obj = "ELIMINER " + std::to_string(level.killsInWave()) + " / " + std::to_string(level.killTarget());
+                } else {
+                    obj = "SURVIVRE " + formatWaveTime(level.waveTime()) + " / " + formatWaveTime(level.surviveTarget()) + "s";
+                }
+                sf::Text objText(font, obj, 18);
+                objText.setFillColor(sf::Color(255, 255, 255));
+                sf::FloatRect ob = objText.getLocalBounds();
+                objText.setOrigin(sf::Vector2f{
+                    ob.position.x + ob.size.x / 2.0f,
+                    ob.position.y + ob.size.y / 2.0f
+                });
+                objText.setPosition({WIN_W / 2.0f, objectiveY + 22.0f});
+                window.draw(objText);
+            }
 
             sf::Text scoreText(font, "Score: " + std::to_string(score), 24);
             scoreText.setFillColor(sf::Color::White);

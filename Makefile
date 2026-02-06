@@ -8,16 +8,16 @@ CXXFLAGS = -std=c++17 -Wall -Wextra -Isrc
 LDFLAGS =
 
 PKG_CONFIG ?= pkg-config
-SFML_PKG ?= sfml-graphics
+SFML_PKGS ?= sfml-graphics sfml-audio
 HAS_PKG := $(shell command -v $(PKG_CONFIG) >/dev/null 2>&1 && echo yes)
 
 ifeq ($(HAS_PKG),yes)
-	CXXFLAGS += $(shell $(PKG_CONFIG) --cflags $(SFML_PKG))
-	LDFLAGS  += $(shell $(PKG_CONFIG) --libs $(SFML_PKG))
+	CXXFLAGS += $(shell $(PKG_CONFIG) --cflags $(SFML_PKGS))
+	LDFLAGS  += $(shell $(PKG_CONFIG) --libs $(SFML_PKGS))
 else
 	SFML_PREFIX ?= /usr/local
 	CXXFLAGS += -I$(SFML_PREFIX)/include
-	LDFLAGS  += -L$(SFML_PREFIX)/lib -lsfml-graphics -lsfml-window -lsfml-system -Wl,-rpath,$(SFML_PREFIX)/lib
+	LDFLAGS  += -L$(SFML_PREFIX)/lib -lsfml-graphics -lsfml-window -lsfml-system -lsfml-audio -Wl,-rpath,$(SFML_PREFIX)/lib
 endif
 
 all: $(NAME)
