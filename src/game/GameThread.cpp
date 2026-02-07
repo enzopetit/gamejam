@@ -130,7 +130,7 @@ void drawEnemy(sf::RenderWindow& window, const Enemy& e, sf::Vector2f playerPos)
 
     window.draw(e.shape);
 
-    if (e.maxHp <= 1) {
+    if (e.type == 0) {
         sf::CircleShape seg1(r * 0.65f);
         seg1.setFillColor(sf::Color(60, 150, 60));
         seg1.setOrigin({r * 0.65f, r * 0.65f});
@@ -187,7 +187,7 @@ void drawEnemy(sf::RenderWindow& window, const Enemy& e, sf::Vector2f playerPos)
         antR.setScale(sc);
         window.draw(antR);
 
-    } else if (e.maxHp <= 3) {
+    } else if (e.type == 1) {
         sf::CircleShape abdomen(r * 0.8f);
         abdomen.setFillColor(sf::Color(220, 200, 50));
         abdomen.setOrigin({r * 0.8f, r * 0.8f});
@@ -315,8 +315,9 @@ void drawEnemy(sf::RenderWindow& window, const Enemy& e, sf::Vector2f playerPos)
     }
 }
 
-Enemy createEnemy(int type, float difficultyTime) {
+Enemy createEnemy(int type, float difficultyTime, int waveIndex) {
     Enemy e;
+    e.type = type;
     float side = static_cast<float>(std::rand() % 4);
     float x, y;
     if (side < 1) { x = -30; y = static_cast<float>(std::rand() % WIN_H); }
@@ -326,22 +327,24 @@ Enemy createEnemy(int type, float difficultyTime) {
 
     float speedMult = 1.0f + difficultyTime / 120.0f;
 
+    float hpScale = 1.0f + static_cast<float>(waveIndex) * ENEMY_HP_PER_WAVE;
+
     if (type == 0) {
         e.shape = sf::CircleShape(12.0f);
         e.baseColor = sf::Color(100, 200, 100);
-        e.hp = 1; e.maxHp = 1;
+        e.hp = 1.0f * hpScale; e.maxHp = e.hp;
         e.speed = ENEMY_BASE_SPEED * 1.5f * speedMult;
         e.timeDrop = 1.0f;
     } else if (type == 1) {
         e.shape = sf::CircleShape(18.0f);
         e.baseColor = sf::Color(220, 200, 50);
-        e.hp = 3; e.maxHp = 3;
+        e.hp = 3.0f * hpScale; e.maxHp = e.hp;
         e.speed = ENEMY_BASE_SPEED * speedMult;
         e.timeDrop = 2.0f;
     } else {
         e.shape = sf::CircleShape(25.0f);
         e.baseColor = sf::Color(200, 80, 80);
-        e.hp = 5; e.maxHp = 5;
+        e.hp = 5.0f * hpScale; e.maxHp = e.hp;
         e.speed = ENEMY_BASE_SPEED * 0.6f * speedMult;
         e.timeDrop = 3.0f;
     }
@@ -350,6 +353,18 @@ Enemy createEnemy(int type, float difficultyTime) {
     e.shape.setPosition({x, y});
     e.spawnAge = 0.0f;
     return e;
+}
+
+float distancePointToSegmentSq(sf::Vector2f p, sf::Vector2f a, sf::Vector2f b) {
+    sf::Vector2f ab = {b.x - a.x, b.y - a.y};
+    float abLenSq = ab.x * ab.x + ab.y * ab.y;
+    if (abLenSq == 0.0f)
+        return distanceSq(p, a);
+    sf::Vector2f ap = {p.x - a.x, p.y - a.y};
+    float t = (ap.x * ab.x + ap.y * ab.y) / abLenSq;
+    t = std::clamp(t, 0.0f, 1.0f);
+    sf::Vector2f proj = {a.x + ab.x * t, a.y + ab.y * t};
+    return distanceSq(p, proj);
 }
 }
 
@@ -383,6 +398,11 @@ int GameThread::run() {
     float speedBoostTimer = 0.0f;
     float rapidFireTimer = 0.0f;
     float pierceTimer = 0.0f;
+    float laserCharge = 0.0f;
+    float laserTimer = 0.0f;
+    bool laserActive = false;
+    bool rightWasDown = false;
+    sf::Vector2f laserEndPos = {0.0f, 0.0f};
     float hitstopTimer = 0.0f;
     float slowMoTimer = 0.0f;
     float flashAlpha = 0.0f;
@@ -453,6 +473,10 @@ int GameThread::run() {
         speedBoostTimer = 0.0f;
         rapidFireTimer = 0.0f;
         pierceTimer = 0.0f;
+        laserCharge = 0.0f;
+        laserTimer = 0.0f;
+        laserActive = false;
+        rightWasDown = false;
         hitstopTimer = 0.0f;
         slowMoTimer = 0.0f;
         flashAlpha = 0.0f;
@@ -661,6 +685,10 @@ int GameThread::run() {
             if (speedBoostTimer > 0.0f) speedBoostTimer -= dt;
             if (rapidFireTimer > 0.0f) rapidFireTimer -= dt;
             if (pierceTimer > 0.0f) pierceTimer -= dt;
+            if (!laserActive)
+                laserCharge = std::min(1.0f, laserCharge + LASER_CHARGE_RATE * dt);
+        } else {
+            laserActive = false;
         }
 
         float speedMult = speedBoostTimer > 0.0f ? SPEED_BONUS_MULT : 1.0f;
@@ -688,6 +716,21 @@ int GameThread::run() {
         sf::Vector2i mousePos = sf::Mouse::getPosition(window);
         sf::Vector2f mousePosF = {static_cast<float>(mousePos.x), static_cast<float>(mousePos.y)};
         sf::Vector2f aimDir = vecNormalize(mousePosF - playerPos);
+
+        bool rightDown = sf::Mouse::isButtonPressed(sf::Mouse::Button::Right);
+        if (waveActive && rightDown && !rightWasDown && laserCharge >= 1.0f && !laserActive) {
+            laserActive = true;
+            laserTimer = LASER_DURATION;
+            laserCharge = 0.0f;
+        }
+        rightWasDown = rightDown;
+
+        if (laserActive) {
+            laserTimer -= dt;
+            if (laserTimer <= 0.0f)
+                laserActive = false;
+            laserEndPos = mousePosF;
+        }
 
         if (shootSquash > 0.0f) {
             shootSquash -= rawDt;
@@ -755,9 +798,9 @@ int GameThread::run() {
                         else type = 2;
                     }
                     float difficultyTime = level.waveTime() + static_cast<float>(level.waveIndex()) * 20.0f;
-                    enemies.push_back(createEnemy(type, difficultyTime));
-                }
+                enemies.push_back(createEnemy(type, difficultyTime, level.waveIndex()));
             }
+        }
         }
 
         if (waveActive) {
@@ -790,6 +833,85 @@ int GameThread::run() {
             if (comboTimer <= 0.0f) comboCount = 0;
         }
 
+        auto handleEnemyDeath = [&](Enemy& e) {
+            e.alive = false;
+            comboCount++;
+            comboTimer = 1.0f;
+            float dropValue = e.timeDrop;
+            if (comboCount >= 3)
+                dropValue *= 1.0f + (comboCount - 2) * 0.25f;
+            int killScore = static_cast<int>(10 * e.maxHp * (1.0f + comboCount * 0.1f));
+            score += killScore;
+            spawnParticles(particles, e.shape.getPosition(), 20, e.baseColor);
+
+            bool isBig = (e.type == 2);
+            hitstopTimer = isBig ? HITSTOP_BIG : HITSTOP_SMALL;
+
+            if (comboCount >= SLOWMO_COMBO_THRESHOLD || isBig)
+                slowMoTimer = SLOWMO_DURATION;
+
+            flashAlpha = FLASH_MAX_ALPHA;
+
+            Shockwave sw;
+            sw.position = e.shape.getPosition();
+            sw.radius = e.shape.getRadius();
+            sw.maxRadius = SHOCKWAVE_MAX_RADIUS + (isBig ? 40.0f : 0.0f);
+            sw.maxLifetime = SHOCKWAVE_LIFETIME;
+            sw.lifetime = sw.maxLifetime;
+            sw.color = e.baseColor;
+            shockwaves.push_back(sw);
+
+            if (fontLoaded) {
+                FloatingText ft;
+                ft.position = e.shape.getPosition() + sf::Vector2f(0.0f, -20.0f);
+                ft.velocity = {0.0f, -FLOATING_TEXT_SPEED};
+                ft.maxLifetime = FLOATING_TEXT_LIFETIME;
+                ft.lifetime = ft.maxLifetime;
+                ft.text = "+" + std::to_string(killScore);
+                ft.color = sf::Color(255, 255, 100);
+                ft.size = 18;
+                floatingTexts.push_back(ft);
+
+                if (comboCount >= 3) {
+                    FloatingText ct;
+                    ct.position = e.shape.getPosition() + sf::Vector2f(0.0f, -40.0f);
+                    ct.velocity = {0.0f, -FLOATING_TEXT_SPEED * 0.8f};
+                    ct.maxLifetime = FLOATING_TEXT_LIFETIME;
+                    ct.lifetime = ct.maxLifetime;
+                    ct.text = "x" + std::to_string(comboCount);
+                    ct.color = sf::Color(255, 200, 50);
+                    ct.size = 22;
+                    floatingTexts.push_back(ct);
+                }
+            }
+
+            bonusSystem.spawnOnKill(e.shape.getPosition(), dropValue);
+            level.onEnemyKilled();
+        };
+
+        if (waveActive && laserActive) {
+            int bonusCount = 0;
+            if (speedBoostTimer > 0.0f) bonusCount++;
+            if (rapidFireTimer > 0.0f) bonusCount++;
+            if (pierceTimer > 0.0f) bonusCount++;
+            if (bonusCount == 0) bonusCount = 1;
+            float waveScale = 1.0f + static_cast<float>(level.waveIndex()) * LASER_DAMAGE_PER_WAVE;
+            float laserDamage = LASER_DAMAGE_PER_SEC * waveScale * static_cast<float>(bonusCount) * dt;
+            float laserRadius = LASER_WIDTH * 0.5f;
+
+            for (auto& e : enemies) {
+                if (!e.alive) continue;
+                float coll = e.shape.getRadius() + laserRadius;
+                if (distancePointToSegmentSq(e.shape.getPosition(), playerPos, laserEndPos) < coll * coll) {
+                    e.hp -= laserDamage;
+                    e.flashTimer = 0.05f;
+                    e.shape.setFillColor(sf::Color::White);
+                    if (e.hp <= 0.0f && e.alive)
+                        handleEnemyDeath(e);
+                }
+            }
+        }
+
         if (waveActive) {
             for (auto& b : bullets) {
                 if (!b.alive) continue;
@@ -813,59 +935,7 @@ int GameThread::run() {
                         }
 
                         if (e.hp <= 0.0f) {
-                            e.alive = false;
-                            comboCount++;
-                            comboTimer = 1.0f;
-                            float dropValue = e.timeDrop;
-                            if (comboCount >= 3)
-                                dropValue *= 1.0f + (comboCount - 2) * 0.25f;
-                            int killScore = static_cast<int>(10 * e.maxHp * (1.0f + comboCount * 0.1f));
-                            score += killScore;
-                            spawnParticles(particles, e.shape.getPosition(), 20, e.baseColor);
-
-                            bool isBig = e.maxHp >= 5;
-                            hitstopTimer = isBig ? HITSTOP_BIG : HITSTOP_SMALL;
-
-                            if (comboCount >= SLOWMO_COMBO_THRESHOLD || isBig)
-                                slowMoTimer = SLOWMO_DURATION;
-
-                            flashAlpha = FLASH_MAX_ALPHA;
-
-                            Shockwave sw;
-                            sw.position = e.shape.getPosition();
-                            sw.radius = e.shape.getRadius();
-                            sw.maxRadius = SHOCKWAVE_MAX_RADIUS + (isBig ? 40.0f : 0.0f);
-                            sw.maxLifetime = SHOCKWAVE_LIFETIME;
-                            sw.lifetime = sw.maxLifetime;
-                            sw.color = e.baseColor;
-                            shockwaves.push_back(sw);
-
-                            if (fontLoaded) {
-                                FloatingText ft;
-                                ft.position = e.shape.getPosition() + sf::Vector2f(0.0f, -20.0f);
-                                ft.velocity = {0.0f, -FLOATING_TEXT_SPEED};
-                                ft.maxLifetime = FLOATING_TEXT_LIFETIME;
-                                ft.lifetime = ft.maxLifetime;
-                                ft.text = "+" + std::to_string(killScore);
-                                ft.color = sf::Color(255, 255, 100);
-                                ft.size = 18;
-                                floatingTexts.push_back(ft);
-
-                                if (comboCount >= 3) {
-                                    FloatingText ct;
-                                    ct.position = e.shape.getPosition() + sf::Vector2f(0.0f, -40.0f);
-                                    ct.velocity = {0.0f, -FLOATING_TEXT_SPEED * 0.8f};
-                                    ct.maxLifetime = FLOATING_TEXT_LIFETIME;
-                                    ct.lifetime = ct.maxLifetime;
-                                    ct.text = "x" + std::to_string(comboCount);
-                                    ct.color = sf::Color(255, 200, 50);
-                                    ct.size = 22;
-                                    floatingTexts.push_back(ct);
-                                }
-                            }
-
-                            bonusSystem.spawnOnKill(e.shape.getPosition(), dropValue);
-                            level.onEnemyKilled();
+                            handleEnemyDeath(e);
                         }
                         break;
                     }
@@ -974,6 +1044,21 @@ int GameThread::run() {
         }
         for (auto& b : bullets)
             window.draw(b.shape);
+        if (laserActive) {
+            sf::Vector2f start = playerPos;
+            sf::Vector2f end = laserEndPos;
+            sf::Vector2f diff = {end.x - start.x, end.y - start.y};
+            float length = vecLength(diff);
+            if (length > 1.0f) {
+                sf::RectangleShape beam({length, LASER_WIDTH});
+                beam.setOrigin({0.0f, LASER_WIDTH / 2.0f});
+                beam.setPosition(start);
+                float angle = std::atan2(diff.y, diff.x) * 180.0f / 3.14159f;
+                beam.setRotation(sf::degrees(angle));
+                beam.setFillColor(sf::Color(100, 255, 160, 200));
+                window.draw(beam);
+            }
+        }
         drawTomato(window, player);
 
         if (fontLoaded) {
@@ -1038,6 +1123,24 @@ int GameThread::run() {
                 barFill.setFillColor(sf::Color::Green);
             barFill.setPosition({barX, barY});
             window.draw(barFill);
+
+            float laserBarW = 10.0f;
+            float laserBarH = 60.0f;
+            float laserBarX = barX + barWidth + 16.0f;
+            float laserBarY = barY - 10.0f;
+            sf::RectangleShape laserBg({laserBarW, laserBarH});
+            laserBg.setFillColor(sf::Color(30, 30, 30));
+            laserBg.setOutlineColor(sf::Color(80, 80, 80));
+            laserBg.setOutlineThickness(2.0f);
+            laserBg.setPosition({laserBarX, laserBarY});
+            window.draw(laserBg);
+
+            float laserFillH = laserBarH * std::clamp(laserCharge, 0.0f, 1.0f);
+            sf::RectangleShape laserFill({laserBarW, laserFillH});
+            sf::Color laserColor = (laserCharge >= 1.0f) ? sf::Color(120, 255, 160) : sf::Color(80, 180, 120);
+            laserFill.setFillColor(laserColor);
+            laserFill.setPosition({laserBarX, laserBarY + (laserBarH - laserFillH)});
+            window.draw(laserFill);
 
             auto formatBuffTime = [](float value) {
                 if (value < 0.0f) value = 0.0f;

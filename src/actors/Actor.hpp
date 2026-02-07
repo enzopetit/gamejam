@@ -19,6 +19,7 @@ struct Enemy {
     bool alive = true;
     float flashTimer = 0.0f;
     sf::Color baseColor;
+    int type = 0;
     float spawnAge = 0.0f;
 };
 
