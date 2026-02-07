@@ -3,6 +3,7 @@
 #include "utils/Math.hpp"
 
 #include <algorithm>
+#include <cstdlib>
 
 namespace {
 sf::Vector2f readMoveDir() {
@@ -27,8 +28,16 @@ void updateTimedPowers(App& a, float dt) {
 
 void updateLaserState(App& a, float rawDt, sf::Vector2f aim) {
     if (aim.x != 0.0f || aim.y != 0.0f) a.laserDirection = aim;
+    bool laserWasActive = a.laserTimer > 0.0f;
     if (a.laserTimer > 0.0f) a.laserTimer = std::max(0.0f, a.laserTimer - rawDt);
     else a.laserCharge = std::min(1.0f, a.laserCharge + rawDt * LASER_CHARGE_RATE);
+
+    if (laserWasActive && a.laserTimer <= 0.0f) {
+        int roll = std::rand() % 3;
+        if (roll == 0) a.speedBoostTimer = std::max(a.speedBoostTimer, SPEED_BONUS_DURATION);
+        else if (roll == 1) a.rapidFireTimer = std::max(a.rapidFireTimer, RAPID_FIRE_DURATION);
+        else a.pierceTimer = std::max(a.pierceTimer, PIERCE_DURATION);
+    }
 
     bool laserPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space);
     if (laserPressed && !a.laserKeyHeld && a.laserTimer <= 0.0f && a.laserCharge >= 1.0f && a.timeLeft >= LASER_TIME_COST) {
