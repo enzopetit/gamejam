@@ -10,6 +10,11 @@ constexpr float PI = 3.14159265f;
 constexpr float LASER_RANGE = 2200.0f;
 constexpr float PROJECTILE_DESPAWN_MARGIN = 80.0f;
 constexpr float BOSS_CONTACT_COOLDOWN = 0.45f;
+constexpr float BOSS_PHASE_DURATION = 6.0f;
+constexpr int BOSS_SPIRAL_PROJECTILE_COUNT = 12;
+constexpr float BOSS_SPIRAL_PROJECTILE_SPEED = 260.0f;
+constexpr int BOSS_CURTAIN_PROJECTILE_COUNT = 11;
+constexpr float BOSS_CURTAIN_SPREAD_DEG = 120.0f;
 
 float dot(sf::Vector2f a, sf::Vector2f b) {
     return a.x * b.x + a.y * b.y;
@@ -96,14 +101,83 @@ void spawnBossFan(App& a, const Enemy& boss, sf::Vector2f playerPos) {
     }
 }
 
+void spawnBossSpiral(App& a, const Enemy& boss, float offsetAngle, bool destructible) {
+    sf::Vector2f center = boss.shape.getPosition();
+    float spin = boss.phaseTimer * (destructible ? 3.2f : -2.5f);
+    for (int i = 0; i < BOSS_SPIRAL_PROJECTILE_COUNT; ++i) {
+        float t = static_cast<float>(i) / static_cast<float>(BOSS_SPIRAL_PROJECTILE_COUNT);
+        float angle = spin + offsetAngle + t * 2.0f * PI;
+        spawnEnemyProjectile(
+            a,
+            center,
+            vectorFromAngle(angle),
+            BOSS_SPIRAL_PROJECTILE_SPEED * (destructible ? 0.9f : 1.0f),
+            destructible ? BOSS_RING_PROJECTILE_RADIUS : BOSS_FAN_PROJECTILE_RADIUS * 0.85f,
+            destructible ? sf::Color(120, 245, 255) : sf::Color(255, 120, 210),
+            destructible ? BOSS_RING_PROJECTILE_DAMAGE : BOSS_FAN_PROJECTILE_DAMAGE * 0.85f,
+            destructible
+        );
+    }
+}
+
+void spawnBossCurtain(App& a, const Enemy& boss, sf::Vector2f playerPos) {
+    sf::Vector2f center = boss.shape.getPosition();
+    sf::Vector2f aim = vecNormalize(playerPos - center);
+    if (aim.x == 0.0f && aim.y == 0.0f) aim = {1.0f, 0.0f};
+
+    float baseAngle = std::atan2(aim.y, aim.x);
+    float spread = toRadians(BOSS_CURTAIN_SPREAD_DEG);
+    float start = baseAngle - spread * 0.5f;
+    float step = spread / static_cast<float>(BOSS_CURTAIN_PROJECTILE_COUNT - 1);
+    for (int i = 0; i < BOSS_CURTAIN_PROJECTILE_COUNT; ++i) {
+        float angle = start + static_cast<float>(i) * step;
+        bool destructible = (i % 2) == 0;
+        spawnEnemyProjectile(
+            a,
+            center,
+            vectorFromAngle(angle),
+            destructible ? BOSS_RING_PROJECTILE_SPEED : BOSS_FAN_PROJECTILE_SPEED,
+            destructible ? BOSS_RING_PROJECTILE_RADIUS * 0.9f : BOSS_FAN_PROJECTILE_RADIUS * 0.9f,
+            destructible ? sf::Color(90, 230, 255) : sf::Color(248, 88, 188),
+            destructible ? BOSS_RING_PROJECTILE_DAMAGE : BOSS_FAN_PROJECTILE_DAMAGE,
+            destructible
+        );
+    }
+}
+
+int bossAttackPhase(const Enemy& boss) {
+    return static_cast<int>(boss.phaseTimer / BOSS_PHASE_DURATION) % 3;
+}
+
+void spawnBossPattern(App& a, const Enemy& boss, sf::Vector2f playerPos, int phase) {
+    if (phase == 0) {
+        spawnBossRing(a, boss);
+        spawnBossFan(a, boss, playerPos);
+        return;
+    }
+    if (phase == 1) {
+        spawnBossSpiral(a, boss, 0.0f, true);
+        spawnBossSpiral(a, boss, PI / static_cast<float>(BOSS_SPIRAL_PROJECTILE_COUNT), false);
+        return;
+    }
+    spawnBossCurtain(a, boss, playerPos);
+    spawnBossFan(a, boss, playerPos);
+}
+
+float nextBossShotDelay(int phase) {
+    if (phase == 1) return BOSS_SHOOT_INTERVAL * 0.75f;
+    if (phase == 2) return BOSS_SHOOT_INTERVAL * 1.15f;
+    return BOSS_SHOOT_INTERVAL;
+}
+
 void updateBossAttacks(App& a, sf::Vector2f playerPos, float dt) {
     for (auto& e : a.enemies) {
         if (!e.alive || e.type != EnemyType::Boss) continue;
         e.shootTimer -= dt;
         if (e.shootTimer > 0.0f) continue;
-        spawnBossRing(a, e);
-        spawnBossFan(a, e, playerPos);
-        e.shootTimer = BOSS_SHOOT_INTERVAL;
+        int phase = bossAttackPhase(e);
+        spawnBossPattern(a, e, playerPos, phase);
+        e.shootTimer = nextBossShotDelay(phase);
     }
 }
 
@@ -121,6 +195,11 @@ void updateEnemyProjectilesMotion(App& a, float dt) {
 
 void onEnemyKilled(App& a, Enemy& e) {
     e.alive = false;
+    if (e.type == EnemyType::Boss) {
+        a.speedBoostTimer = std::max(a.speedBoostTimer, SPEED_BONUS_DURATION);
+        a.rapidFireTimer = std::max(a.rapidFireTimer, RAPID_FIRE_DURATION);
+        a.pierceTimer = std::max(a.pierceTimer, PIERCE_DURATION);
+    }
     a.comboCount++;
     a.comboTimer = 1.0f;
     float dropValue = e.timeDrop;
@@ -280,6 +359,8 @@ void applyLaserDamage(App& a, float dt, sf::Vector2f playerPos) {
     if (dir.x == 0.0f && dir.y == 0.0f) return;
 
     float damagePerSecond = LASER_DAMAGE_PER_SEC + static_cast<float>(a.level.waveIndex()) * LASER_DAMAGE_PER_WAVE;
+    float comboMultiplier = 1.0f + static_cast<float>(a.comboCount) * 0.1f;
+    damagePerSecond *= comboMultiplier;
     float beamRadius = LASER_WIDTH * 0.5f;
     for (auto& e : a.enemies) {
         if (!e.alive) continue;
