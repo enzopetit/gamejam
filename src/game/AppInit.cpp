@@ -28,6 +28,26 @@ void appInit(App& a) {
     a.music.loadFromJson("music/music.json");
     a.music.setVolume(a.musicVolume);
     a.music.stop();
+
+    a.productionLogoLoaded = a.productionLogoTexture.loadFromFile("assets/ProductionLogo.png");
+    if (!a.productionLogoLoaded) a.productionLogoLoaded = a.productionLogoTexture.loadFromFile("assets/Anzoproduction.png");
+    if (a.productionLogoLoaded) {
+        a.productionLogoSprite.emplace(a.productionLogoTexture);
+        sf::Vector2u s = a.productionLogoTexture.getSize();
+        if (s.x > 0 && s.y > 0) {
+            float sx = static_cast<float>(WIN_W) / static_cast<float>(s.x);
+            float sy = static_cast<float>(WIN_H) / static_cast<float>(s.y);
+            float scale = std::min(sx, sy);
+            a.productionLogoSprite->setScale({scale, scale});
+            float drawW = static_cast<float>(s.x) * scale;
+            float drawH = static_cast<float>(s.y) * scale;
+            a.productionLogoSprite->setPosition({(WIN_W - drawW) * 0.5f, (WIN_H - drawH) * 0.5f});
+        }
+    }
+
+    a.splashTimer = 0.0f;
+    a.state = a.productionLogoLoaded ? AppState::Splash : AppState::Menu;
+    if (a.menuMusicLoaded) a.menuMusic->play();
 }
 
 void appResetGame(App& a) {

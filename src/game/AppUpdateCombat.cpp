@@ -359,7 +359,7 @@ void applyLaserDamage(App& a, float dt, sf::Vector2f playerPos) {
     if (dir.x == 0.0f && dir.y == 0.0f) return;
 
     float damagePerSecond = LASER_DAMAGE_PER_SEC + static_cast<float>(a.level.waveIndex()) * LASER_DAMAGE_PER_WAVE;
-    float comboMultiplier = 1.0f + static_cast<float>(a.comboCount) * 0.1f;
+    float comboMultiplier = 1.0f + static_cast<float>(a.comboCount) * 0.5f;
     damagePerSecond *= comboMultiplier;
     float beamRadius = LASER_WIDTH * 0.5f;
     for (auto& e : a.enemies) {

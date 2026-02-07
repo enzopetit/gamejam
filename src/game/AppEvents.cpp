@@ -1,12 +1,19 @@
 #include "game/AppFlow.hpp"
 
 static void playMenuSound(App& a){ if (a.menuSoundLoaded) a.menuSound->play(); }
+namespace {
+constexpr float SPLASH_HOLD_TIME = 2.0f;
+constexpr float SPLASH_FADE_TIME = 1.2f;
+constexpr float SPLASH_TOTAL_TIME = SPLASH_HOLD_TIME + SPLASH_FADE_TIME;
+}
 
-void appHandleEvents(App& a, float, float) {
+void appHandleEvents(App& a, float rawDt, float) {
     while (const auto event = a.window.pollEvent()) {
         if (event->is<sf::Event::Closed>()) a.window.close();
         if (const auto* key = event->getIf<sf::Event::KeyPressed>()) {
-            if (a.state == AppState::Menu) {
+            if (a.state == AppState::Splash) {
+                a.splashTimer = SPLASH_TOTAL_TIME;
+            } else if (a.state == AppState::Menu) {
                 if (key->code == sf::Keyboard::Key::Escape) a.window.close();
                 else if (key->code == sf::Keyboard::Key::Up || key->code == sf::Keyboard::Key::Z || key->code == sf::Keyboard::Key::W) { a.menuIndex = (a.menuIndex + 2) % 3; playMenuSound(a);} 
                 else if (key->code == sf::Keyboard::Key::Down || key->code == sf::Keyboard::Key::S) { a.menuIndex = (a.menuIndex + 1) % 3; playMenuSound(a);} 
@@ -31,5 +38,11 @@ void appHandleEvents(App& a, float, float) {
             }
         }
     }
+    if (a.state == AppState::Splash) {
+        a.splashTimer += rawDt;
+        if (a.splashTimer >= SPLASH_TOTAL_TIME) {
+            a.splashTimer = 0.0f;
+            a.state = AppState::Menu;
+        }
+    }
 }
-

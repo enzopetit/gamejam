@@ -12,7 +12,7 @@
 #include <optional>
 #include <vector>
 
-enum class AppState { Menu, Options, Playing, GameOver };
+enum class AppState { Splash, Menu, Options, Playing, GameOver };
 
 struct App {
     sf::RenderWindow window{sf::VideoMode({WIN_W, WIN_H}), "Tomato Blaster"};
@@ -33,4 +33,6 @@ struct App {
     sf::Texture menuTexture; std::optional<sf::Sprite> menuSprite; bool menuBgLoaded=false;
     sf::SoundBuffer menuBuffer; std::optional<sf::Sound> menuSound; bool menuSoundLoaded=false;
     std::optional<sf::Music> menuMusic; bool menuMusicLoaded=false;
+    sf::Texture productionLogoTexture; std::optional<sf::Sprite> productionLogoSprite; bool productionLogoLoaded=false;
+    float splashTimer=0.0f;
 };
