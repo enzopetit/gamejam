@@ -24,6 +24,8 @@ public:
     float intermissionLeft() const;
     float surviveTarget() const;
     ObjectiveType objectiveType() const;
+    bool isBossWave() const;
+    int bossKillTarget() const;
 
 private:
     int currentWave;

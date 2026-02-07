@@ -56,30 +56,4 @@ bool LevelManager::consumeWaveCompleted() {
     return true;
 }
 
-int LevelManager::waveIndex() const {
-    return currentWave;
-}
-
-int LevelManager::killTarget() const {
-    return WAVE_KILL_BASE + currentWave * WAVE_KILL_STEP;
-}
-
-int LevelManager::killsInWave() const {
-    return kills;
-}
-
-float LevelManager::waveTime() const {
-    return waveTimer;
-}
-
-float LevelManager::intermissionLeft() const {
-    return intermissionTimer;
-}
-
-float LevelManager::surviveTarget() const {
-    return WAVE_SURVIVE_BASE + static_cast<float>(currentWave) * WAVE_SURVIVE_STEP;
-}
-
-LevelManager::ObjectiveType LevelManager::objectiveType() const {
-    return (currentWave % 2 == 0) ? ObjectiveType::Kill : ObjectiveType::Survive;
-}
+// Query methods implemented in LevelManager_Queries.cpp
