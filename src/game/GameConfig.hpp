@@ -1,59 +1,7 @@
 #pragma once
 
-inline constexpr unsigned int WIN_W = 1280;
-inline constexpr unsigned int WIN_H = 720;
-inline constexpr float PLAYER_SPEED = 300.0f;
-inline constexpr float PLAYER_RADIUS = 20.0f;
-inline constexpr float BULLET_SPEED = 600.0f;
-inline constexpr float BULLET_RADIUS = 8.0f;
-inline constexpr float BULLET_TIME_COST = 0.3f;
-inline constexpr float BASE_SHOOT_COOLDOWN = 0.15f;
-inline constexpr float RAPID_FIRE_COOLDOWN = 0.07f;
-inline constexpr float RAPID_FIRE_DURATION = 4.0f;
-inline constexpr float PIERCE_DURATION = 5.0f;
-inline constexpr float BULLET_BIG_MULT = 2.0f;
-inline constexpr float TOTAL_TIME = 300.0f;
-inline constexpr float ENEMY_BASE_SPEED = 100.0f;
-inline constexpr float ENEMY_HP_PER_WAVE = 0.12f;
-inline constexpr float SPAWN_INTERVAL_START = 1.5f;
-inline constexpr float SPAWN_INTERVAL_MIN = 0.3f;
-inline constexpr float SHAKE_DURATION = 0.1f;
-inline constexpr float SHAKE_INTENSITY = 5.0f;
-inline constexpr float BONUS_LIFETIME = 5.0f;
-inline constexpr float SPEED_BONUS_MULT = 1.4f;
-inline constexpr float SPEED_BONUS_DURATION = 4.0f;
-inline constexpr float LASER_CHARGE_RATE = 0.08f;
-inline constexpr float LASER_DURATION = 1.5f;
-inline constexpr float LASER_WIDTH = 18.0f;
-inline constexpr float LASER_DAMAGE_PER_SEC = 2.5f;
-inline constexpr float LASER_DAMAGE_PER_WAVE = 0.01f;
-inline constexpr float LASER_SFX_VOLUME = 50.0f;
-inline constexpr float LASER_SFX_FADE_START = 3.0f;
-inline constexpr float LASER_SFX_FADE_DURATION = 1.0f;
-inline constexpr float LASER_SFX_START_OFFSET = 0.0f;
-inline constexpr int WAVE_KILL_BASE = 12;
-inline constexpr int WAVE_KILL_STEP = 6;
-inline constexpr float WAVE_INTERMISSION = 2.0f;
-inline constexpr float WAVE_SURVIVE_BASE = 18.0f;
-inline constexpr float WAVE_SURVIVE_STEP = 6.0f;
-inline constexpr float TIME_LEFT_SPAWN_BOOST = 0.35f;
-
-inline constexpr float HITSTOP_SMALL = 0.04f;
-inline constexpr float HITSTOP_BIG = 0.08f;
-inline constexpr float SLOWMO_SCALE = 0.3f;
-inline constexpr float SLOWMO_DURATION = 0.15f;
-inline constexpr int SLOWMO_COMBO_THRESHOLD = 5;
-inline constexpr float SHOCKWAVE_MAX_RADIUS = 80.0f;
-inline constexpr float SHOCKWAVE_LIFETIME = 0.3f;
-inline constexpr float FLOATING_TEXT_LIFETIME = 0.8f;
-inline constexpr float FLOATING_TEXT_SPEED = 80.0f;
-inline constexpr float BONUS_PULSE_FREQ = 6.0f;
-inline constexpr float BONUS_PULSE_AMP = 0.15f;
-inline constexpr float ENEMY_SPAWN_DURATION = 0.2f;
-inline constexpr float FLASH_DURATION = 0.08f;
-inline constexpr float FLASH_MAX_ALPHA = 80.0f;
-inline constexpr float BULLET_TRAIL_LIFETIME = 0.1f;
-inline constexpr float BULLET_TRAIL_RADIUS = 2.5f;
-inline constexpr float SQUASH_DURATION = 0.1f;
-inline constexpr float SQUASH_X = 1.3f;
-inline constexpr float SQUASH_Y = 0.7f;
+#include "game/config/Core.hpp"
+#include "game/config/Powers.hpp"
+#include "game/config/WavesEnemies.hpp"
+#include "game/config/EnemiesBoss.hpp"
+#include "game/config/CombatUI.hpp"
