@@ -16,8 +16,11 @@ void updateSpawns(App& a, float dt) {
         int waveBonus = a.level.waveIndex() / 3; int pressureBonus = static_cast<int>(timePressure * 2.0f);
         int spawnCount = std::clamp(1 + waveBonus + pressureBonus, 1, 5);
         for (int i = 0; i < spawnCount; ++i) {
-            int roll = std::rand() % 100; int type;
-            if (a.level.waveIndex() < 2) type = 0; else if (a.level.waveIndex() < 4) type = (roll < 70) ? 0 : 1; else type = (roll < 50) ? 0 : (roll < 85 ? 1 : 2);
+            int roll = std::rand() % 100;
+            EnemyType type;
+            if (a.level.waveIndex() < 2) type = EnemyType::Caterpillar;
+            else if (a.level.waveIndex() < 4) type = (roll < 70) ? EnemyType::Caterpillar : EnemyType::Wasp;
+            else type = (roll < 50) ? EnemyType::Caterpillar : (roll < 85 ? EnemyType::Wasp : EnemyType::Beetle);
             float difficultyTime = a.level.waveTime() + static_cast<float>(a.level.waveIndex()) * 20.0f;
             a.enemies.push_back(createEnemy(type, difficultyTime));
         }

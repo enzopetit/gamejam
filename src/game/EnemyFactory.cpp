@@ -5,8 +5,9 @@
 #include <SFML/Graphics.hpp>
 #include <cstdlib>
 
-Enemy createEnemy(int type, float difficultyTime) {
+Enemy createEnemy(EnemyType type, float difficultyTime) {
     Enemy e;
+    e.type = type;
     float side = static_cast<float>(std::rand() % 4);
     float x, y;
     if (side < 1) { x = -30; y = static_cast<float>(std::rand() % WIN_H); }
@@ -16,24 +17,35 @@ Enemy createEnemy(int type, float difficultyTime) {
 
     float speedMult = 1.0f + difficultyTime / 120.0f;
 
-    if (type == 0) {
-        e.shape = sf::CircleShape(12.0f);
-        e.baseColor = sf::Color(100, 200, 100);
-        e.hp = 1; e.maxHp = 1;
-        e.speed = ENEMY_BASE_SPEED * 1.5f * speedMult;
-        e.timeDrop = 1.0f;
-    } else if (type == 1) {
-        e.shape = sf::CircleShape(18.0f);
-        e.baseColor = sf::Color(220, 200, 50);
-        e.hp = 3; e.maxHp = 3;
-        e.speed = ENEMY_BASE_SPEED * speedMult;
-        e.timeDrop = 2.0f;
-    } else {
-        e.shape = sf::CircleShape(25.0f);
-        e.baseColor = sf::Color(200, 80, 80);
-        e.hp = 5; e.maxHp = 5;
-        e.speed = ENEMY_BASE_SPEED * 0.6f * speedMult;
-        e.timeDrop = 3.0f;
+    switch (type) {
+        case EnemyType::Caterpillar:
+            e.shape = sf::CircleShape(12.0f);
+            e.baseColor = sf::Color(100, 200, 100);
+            e.hp = 1; e.maxHp = 1;
+            e.speed = ENEMY_BASE_SPEED * 1.5f * speedMult;
+            e.timeDrop = 1.0f;
+            break;
+        case EnemyType::Wasp:
+            e.shape = sf::CircleShape(18.0f);
+            e.baseColor = sf::Color(220, 200, 50);
+            e.hp = 3; e.maxHp = 3;
+            e.speed = ENEMY_BASE_SPEED * speedMult;
+            e.timeDrop = 2.0f;
+            break;
+        case EnemyType::Beetle:
+            e.shape = sf::CircleShape(25.0f);
+            e.baseColor = sf::Color(200, 80, 80);
+            e.hp = 5; e.maxHp = 5;
+            e.speed = ENEMY_BASE_SPEED * 0.6f * speedMult;
+            e.timeDrop = 3.0f;
+            break;
+        default:
+            e.shape = sf::CircleShape(12.0f);
+            e.baseColor = sf::Color(100, 200, 100);
+            e.hp = 1; e.maxHp = 1;
+            e.speed = ENEMY_BASE_SPEED * 1.5f * speedMult;
+            e.timeDrop = 1.0f;
+            break;
     }
     e.shape.setFillColor(e.baseColor);
     e.shape.setOrigin({e.shape.getRadius(), e.shape.getRadius()});
@@ -41,4 +53,3 @@ Enemy createEnemy(int type, float difficultyTime) {
     e.spawnAge = 0.0f;
     return e;
 }
-

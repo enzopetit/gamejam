@@ -2,4 +2,4 @@
 
 #include "actors/Actor.hpp"
 
-Enemy createEnemy(int type, float difficultyTime);
+Enemy createEnemy(EnemyType type, float difficultyTime);
