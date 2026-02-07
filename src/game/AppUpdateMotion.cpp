@@ -69,11 +69,15 @@ void fireBullet(App& a, sf::Vector2f pos, sf::Vector2f aim, float interval) {
     Bullet b;
     b.shape = sf::CircleShape(BULLET_RADIUS);
     b.shape.setFillColor(sf::Color(240, 90, 60));
-    b.shape.setOrigin({BULLET_RADIUS, BULLET_RADIUS});
     b.velocity = aim * BULLET_SPEED;
     b.piercing = a.pierceTimer > 0.0f;
-    if (b.piercing) b.shape.setFillColor(sf::Color(80, 220, 120));
-    sf::Vector2f bpos = pos + aim * (PLAYER_RADIUS + BULLET_RADIUS + 2.0f);
+    if (b.piercing) {
+        b.shape = sf::CircleShape(BULLET_RADIUS * 2.0f);
+        b.shape.setFillColor(sf::Color(80, 220, 120));
+    }
+    float bulletRadius = b.shape.getRadius();
+    b.shape.setOrigin({bulletRadius, bulletRadius});
+    sf::Vector2f bpos = pos + aim * (PLAYER_RADIUS + bulletRadius + 2.0f);
     b.shape.setPosition(bpos);
     a.bullets.push_back(b);
 

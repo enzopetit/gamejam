@@ -3,9 +3,10 @@
 #include "game/GameConfig.hpp"
 
 #include <SFML/Graphics.hpp>
+#include <cmath>
 #include <cstdlib>
 
-Enemy createEnemy(EnemyType type, float difficultyTime) {
+Enemy createEnemy(EnemyType type, float difficultyTime, int waveIndex) {
     Enemy e;
     e.type = type;
     float side = static_cast<float>(std::rand() % 4);
@@ -39,6 +40,14 @@ Enemy createEnemy(EnemyType type, float difficultyTime) {
             e.speed = ENEMY_BASE_SPEED * 0.6f * speedMult;
             e.timeDrop = 3.0f;
             break;
+        case EnemyType::Boss:
+            e.shape = sf::CircleShape(BOSS_RADIUS);
+            e.baseColor = sf::Color(170, 60, 190);
+            e.hp = BOSS_HP; e.maxHp = BOSS_HP;
+            e.speed = BOSS_SPEED * speedMult;
+            e.timeDrop = BOSS_TIME_DROP;
+            e.shootTimer = BOSS_SHOOT_INTERVAL * 0.6f;
+            break;
         default:
             e.shape = sf::CircleShape(12.0f);
             e.baseColor = sf::Color(100, 200, 100);
@@ -47,6 +56,9 @@ Enemy createEnemy(EnemyType type, float difficultyTime) {
             e.timeDrop = 1.0f;
             break;
     }
+    float hpMult = std::pow(1.0f + ENEMY_HP_PER_WAVE, static_cast<float>(waveIndex));
+    e.hp *= hpMult;
+    e.maxHp *= hpMult;
     e.shape.setFillColor(e.baseColor);
     e.shape.setOrigin({e.shape.getRadius(), e.shape.getRadius()});
     e.shape.setPosition({x, y});

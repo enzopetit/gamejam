@@ -46,6 +46,7 @@ void appRenderPlaying(App& a) {
     drawShockwaves(a.window, a.shockwaves);
     for (auto& p : a.particles) a.window.draw(p.shape);
     for (auto& e : a.enemies) { float s = std::min(1.0f, e.spawnAge / ENEMY_SPAWN_DURATION); e.shape.setScale({s,s}); drawEnemy(a.window, e, a.player.getPosition()); }
+    for (auto& ep : a.enemyProjectiles) a.window.draw(ep.shape);
     for (auto& b : a.bullets) a.window.draw(b.shape);
     drawLaser(a);
     drawTomato(a.window, a.player);

@@ -18,11 +18,13 @@ struct App {
     sf::RenderWindow window{sf::VideoMode({WIN_W, WIN_H}), "Tomato Blaster"};
     sf::CircleShape player{PLAYER_RADIUS};
     std::vector<Bullet> bullets; std::vector<Enemy> enemies;
+    std::vector<EnemyProjectile> enemyProjectiles;
     std::vector<Particle> particles; std::vector<Shockwave> shockwaves; std::vector<FloatingText> floatingTexts;
     BonusSystem bonusSystem; LevelManager level; MusicManager music; sf::Clock clock;
     float timeLeft=TOTAL_TIME, gameTime=0.0f, spawnTimer=0.0f, spawnInterval=SPAWN_INTERVAL_START;
     int score=0, comboCount=0; float comboTimer=0.0f, shakeTimer=0.0f, shootCooldown=0.0f;
     float speedBoostTimer=0.0f, rapidFireTimer=0.0f, pierceTimer=0.0f, hitstopTimer=0.0f, slowMoTimer=0.0f, flashAlpha=0.0f, shootSquash=0.0f;
+    float bossContactCooldown=0.0f;
     float laserCharge=0.0f, laserTimer=0.0f;
     sf::Vector2f laserDirection{1.0f, 0.0f};
     bool laserKeyHeld=false;

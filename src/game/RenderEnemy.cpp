@@ -1,10 +1,20 @@
 #include "game/RenderHelpers.hpp"
 
+namespace {
+bool isSmallType(EnemyType type) {
+    return type == EnemyType::Caterpillar || type == EnemyType::Ant;
+}
+
+bool isMediumType(EnemyType type) {
+    return type == EnemyType::Wasp || type == EnemyType::Spider;
+}
+}
+
 void drawEnemy(sf::RenderWindow& window, const Enemy& e, sf::Vector2f playerPos) {
     sf::Vector2f ePos = e.shape.getPosition(); sf::Vector2f sc = e.shape.getScale(); float r = e.shape.getRadius();
     sf::Vector2f dir = vecNormalize(playerPos - ePos); sf::Vector2f perp = {-dir.y, dir.x};
     window.draw(e.shape);
-    if (e.maxHp <= 1) {
+    if (isSmallType(e.type)) {
         sf::CircleShape seg1(r*0.65f); seg1.setFillColor(sf::Color(60,150,60)); seg1.setOrigin({r*0.65f,r*0.65f}); seg1.setPosition(ePos - dir*r*0.9f*sc.x); seg1.setScale(sc); window.draw(seg1);
         sf::CircleShape seg2(r*0.5f); seg2.setFillColor(sf::Color(50,130,50)); seg2.setOrigin({r*0.5f,r*0.5f}); seg2.setPosition(ePos - dir*r*1.6f*sc.x); seg2.setScale(sc); window.draw(seg2);
         sf::CircleShape eyeL(r*0.22f); eyeL.setFillColor(sf::Color::White); eyeL.setOrigin({r*0.22f,r*0.22f}); eyeL.setPosition(ePos + dir*r*0.5f*sc.x + perp*r*0.35f*sc.x); eyeL.setScale(sc); window.draw(eyeL);
@@ -13,7 +23,7 @@ void drawEnemy(sf::RenderWindow& window, const Enemy& e, sf::Vector2f playerPos)
         sf::CircleShape pupilR(r*0.12f); pupilR.setFillColor(sf::Color::Black); pupilR.setOrigin({r*0.12f,r*0.12f}); pupilR.setPosition(ePos + dir*r*0.6f*sc.x - perp*r*0.35f*sc.x); pupilR.setScale(sc); window.draw(pupilR);
         sf::RectangleShape antL({r*0.08f,r*0.6f}); antL.setFillColor(sf::Color(40,100,40)); antL.setOrigin({r*0.04f,r*0.6f}); antL.setPosition(ePos + dir*r*0.7f*sc.x + perp*r*0.25f*sc.x); antL.setScale(sc); window.draw(antL);
         sf::RectangleShape antR({r*0.08f,r*0.6f}); antR.setFillColor(sf::Color(40,100,40)); antR.setOrigin({r*0.04f,r*0.6f}); antR.setPosition(ePos + dir*r*0.7f*sc.x - perp*r*0.25f*sc.x); antR.setScale(sc); window.draw(antR);
-    } else if (e.maxHp <= 3) {
+    } else if (isMediumType(e.type)) {
         sf::CircleShape abdomen(r*0.8f); abdomen.setFillColor(sf::Color(220,200,50)); abdomen.setOrigin({r*0.8f,r*0.8f}); abdomen.setPosition(ePos - dir*r*1.0f*sc.x); abdomen.setScale(sc); window.draw(abdomen);
         sf::RectangleShape stripe1({r*1.4f,r*0.15f}); stripe1.setFillColor(sf::Color::Black); stripe1.setOrigin({r*0.7f,r*0.075f}); stripe1.setPosition(ePos - dir*r*0.8f*sc.x); stripe1.setScale(sc); window.draw(stripe1);
         sf::RectangleShape stripe2({r*1.2f,r*0.15f}); stripe2.setFillColor(sf::Color::Black); stripe2.setOrigin({r*0.6f,r*0.075f}); stripe2.setPosition(ePos - dir*r*1.2f*sc.x); stripe2.setScale(sc); window.draw(stripe2);
@@ -32,4 +42,3 @@ void drawEnemy(sf::RenderWindow& window, const Enemy& e, sf::Vector2f playerPos)
         sf::CircleShape eyeR(r*0.2f); eyeR.setFillColor(sf::Color(230,200,50)); eyeR.setOrigin({r*0.2f,r*0.2f}); eyeR.setPosition(ePos + dir*r*0.5f*sc.x - perp*r*0.35f*sc.x); eyeR.setScale(sc); window.draw(eyeR);
     }
 }
-

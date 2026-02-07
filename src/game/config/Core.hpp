@@ -13,11 +13,10 @@ inline constexpr float BULLET_TIME_COST = 0.3f;
 inline constexpr float TOTAL_TIME = 300.0f;
 
 inline constexpr float ENEMY_BASE_SPEED = 100.0f;
-inline constexpr float ENEMY_HP_PER_WAVE = 0.12f;
+inline constexpr float ENEMY_HP_PER_WAVE = 0.05f;
 
 inline constexpr float SPAWN_INTERVAL_START = 1.5f;
 inline constexpr float SPAWN_INTERVAL_MIN = 0.3f;
 
 inline constexpr float SHAKE_DURATION = 0.1f;
 inline constexpr float SHAKE_INTENSITY = 5.0f;
-
