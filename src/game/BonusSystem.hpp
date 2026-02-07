@@ -9,6 +9,7 @@
 class BonusSystem {
 public:
     void spawnOnKill(sf::Vector2f pos, float timeValue);
+    void spawnRandomPowerBonus(sf::Vector2f pos);
     void update(float dt, sf::Vector2f playerPos, float playerRadius, float& timeLeft, float& speedBoostTimer, float& rapidFireTimer, float& pierceTimer);
     void draw(sf::RenderTarget& target, float gameTime) const;
     void clear();

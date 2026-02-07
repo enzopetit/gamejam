@@ -58,6 +58,17 @@ void BonusSystem::spawnOnKill(sf::Vector2f pos, float timeValue) {
     }
 }
 
+void BonusSystem::spawnRandomPowerBonus(sf::Vector2f pos) {
+    int roll = std::rand() % 3;
+    if (roll == 0) {
+        spawn(pos, BonusType::Speed, SPEED_BONUS_DURATION);
+    } else if (roll == 1) {
+        spawn(pos, BonusType::RapidFire, RAPID_FIRE_DURATION);
+    } else {
+        spawn(pos, BonusType::Pierce, PIERCE_DURATION);
+    }
+}
+
 void BonusSystem::update(float dt, sf::Vector2f playerPos, float playerRadius, float& timeLeft, float& speedBoostTimer, float& rapidFireTimer, float& pierceTimer) {
     pickupPositions.clear();
 

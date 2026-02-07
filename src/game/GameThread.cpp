@@ -403,6 +403,8 @@ int GameThread::run() {
     bool laserActive = false;
     bool rightWasDown = false;
     sf::Vector2f laserEndPos = {0.0f, 0.0f};
+    bool laserSfxActive = false;
+    float laserSfxElapsed = 0.0f;
     float hitstopTimer = 0.0f;
     float slowMoTimer = 0.0f;
     float flashAlpha = 0.0f;
@@ -438,6 +440,14 @@ int GameThread::run() {
     if (menuSoundLoaded) {
         menuSound.emplace(menuBuffer);
         menuSound->setVolume(musicVolume);
+    }
+
+    sf::SoundBuffer laserBuffer;
+    std::optional<sf::Sound> laserSound;
+    bool laserSoundLoaded = laserBuffer.loadFromFile("music/Kamehameha.ogg");
+    if (laserSoundLoaded) {
+        laserSound.emplace(laserBuffer);
+        laserSound->setVolume(LASER_SFX_VOLUME);
     }
 
     std::optional<sf::Music> menuMusic;
@@ -477,6 +487,10 @@ int GameThread::run() {
         laserTimer = 0.0f;
         laserActive = false;
         rightWasDown = false;
+        laserSfxActive = false;
+        laserSfxElapsed = 0.0f;
+        if (laserSoundLoaded)
+            laserSound->stop();
         hitstopTimer = 0.0f;
         slowMoTimer = 0.0f;
         flashAlpha = 0.0f;
@@ -722,14 +736,40 @@ int GameThread::run() {
             laserActive = true;
             laserTimer = LASER_DURATION;
             laserCharge = 0.0f;
+            laserSfxActive = true;
+            laserSfxElapsed = 0.0f;
+            if (laserSoundLoaded) {
+                laserSound->stop();
+                laserSound->setPlayingOffset(sf::seconds(LASER_SFX_START_OFFSET));
+                laserSound->setVolume(LASER_SFX_VOLUME);
+                laserSound->play();
+            }
         }
         rightWasDown = rightDown;
 
         if (laserActive) {
             laserTimer -= dt;
-            if (laserTimer <= 0.0f)
+            if (laserTimer <= 0.0f) {
                 laserActive = false;
+                if (waveActive)
+                    bonusSystem.spawnRandomPowerBonus(playerPos);
+            }
             laserEndPos = mousePosF;
+        }
+
+        if (laserSfxActive && laserSoundLoaded) {
+            laserSfxElapsed += rawDt;
+            if (laserSfxElapsed >= LASER_SFX_FADE_START) {
+                float t = (laserSfxElapsed - LASER_SFX_FADE_START) / LASER_SFX_FADE_DURATION;
+                t = std::clamp(t, 0.0f, 1.0f);
+                laserSound->setVolume(LASER_SFX_VOLUME * (1.0f - t));
+                if (t >= 1.0f) {
+                    laserSound->stop();
+                    laserSfxActive = false;
+                }
+            }
+            if (laserSound->getStatus() == sf::SoundSource::Status::Stopped)
+                laserSfxActive = false;
         }
 
         if (shootSquash > 0.0f) {
@@ -1050,13 +1090,42 @@ int GameThread::run() {
             sf::Vector2f diff = {end.x - start.x, end.y - start.y};
             float length = vecLength(diff);
             if (length > 1.0f) {
-                sf::RectangleShape beam({length, LASER_WIDTH});
-                beam.setOrigin({0.0f, LASER_WIDTH / 2.0f});
-                beam.setPosition(start);
                 float angle = std::atan2(diff.y, diff.x) * 180.0f / 3.14159f;
-                beam.setRotation(sf::degrees(angle));
-                beam.setFillColor(sf::Color(100, 255, 160, 200));
-                window.draw(beam);
+                float pulse = 0.75f + 0.25f * std::sin(gameTime * 18.0f + length * 0.01f);
+                float outerW = LASER_WIDTH * (1.8f + 0.2f * pulse);
+                float midW = LASER_WIDTH * (1.2f + 0.15f * pulse);
+                float innerW = LASER_WIDTH * (0.6f + 0.1f * pulse);
+
+                sf::RenderStates add;
+                add.blendMode = sf::BlendAdd;
+
+                sf::RectangleShape glow({length, outerW});
+                glow.setOrigin({0.0f, outerW / 2.0f});
+                glow.setPosition(start);
+                glow.setRotation(sf::degrees(angle));
+                glow.setFillColor(sf::Color(60, 220, 140, 80));
+                window.draw(glow, add);
+
+                sf::RectangleShape mid({length, midW});
+                mid.setOrigin({0.0f, midW / 2.0f});
+                mid.setPosition(start);
+                mid.setRotation(sf::degrees(angle));
+                mid.setFillColor(sf::Color(90, 255, 190, 140));
+                window.draw(mid, add);
+
+                sf::RectangleShape core({length, innerW});
+                core.setOrigin({0.0f, innerW / 2.0f});
+                core.setPosition(start);
+                core.setRotation(sf::degrees(angle));
+                core.setFillColor(sf::Color(230, 255, 255, 220));
+                window.draw(core, add);
+
+                float flareR = 8.0f + 6.0f * pulse;
+                sf::CircleShape flare(flareR);
+                flare.setOrigin({flareR, flareR});
+                flare.setPosition(end);
+                flare.setFillColor(sf::Color(200, 255, 220, 200));
+                window.draw(flare, add);
             }
         }
         drawTomato(window, player);
