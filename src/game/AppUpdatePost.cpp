@@ -4,7 +4,7 @@
 
 void updatePost(App& a, float rawDt) {
     if (a.level.isWaveActive()) {
-        a.bonusSystem.update(rawDt, a.player.getPosition(), PLAYER_RADIUS, a.timeLeft, a.speedBoostTimer, a.rapidFireTimer);
+        a.bonusSystem.update(rawDt, a.player.getPosition(), PLAYER_RADIUS, a.timeLeft, a.speedBoostTimer, a.rapidFireTimer, a.pierceTimer, 0.0f);
         for (const auto& p : a.bonusSystem.getPickups()) spawnParticles(a.particles, p, 12, sf::Color(255,255,200));
         a.bonusSystem.clearPickups();
     }

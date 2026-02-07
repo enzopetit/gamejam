@@ -11,5 +11,8 @@ void drawHud(
     int comboCount,
     float speedBoostTimer,
     float rapidFireTimer,
+    float pierceTimer,
+    float laserCharge,
+    float laserTimer,
     const LevelManager& level
 );

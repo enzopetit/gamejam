@@ -32,9 +32,9 @@ void appInit(App& a) {
 
 void appResetGame(App& a) {
     a.timeLeft = TOTAL_TIME; a.gameTime=0.0f; a.spawnTimer=0.0f; a.spawnInterval=SPAWN_INTERVAL_START; a.score=0;
-    a.comboCount=0; a.comboTimer=0.0f; a.shakeTimer=0.0f; a.shootCooldown=0.0f; a.speedBoostTimer=0.0f; a.rapidFireTimer=0.0f;
+    a.comboCount=0; a.comboTimer=0.0f; a.shakeTimer=0.0f; a.shootCooldown=0.0f; a.speedBoostTimer=0.0f; a.rapidFireTimer=0.0f; a.pierceTimer=0.0f;
     a.hitstopTimer=0.0f; a.slowMoTimer=0.0f; a.flashAlpha=0.0f; a.shootSquash=0.0f;
+    a.laserCharge=0.0f; a.laserTimer=0.0f; a.laserDirection={1.0f, 0.0f}; a.laserKeyHeld=false;
     a.bullets.clear(); a.enemies.clear(); a.particles.clear(); a.shockwaves.clear(); a.floatingTexts.clear(); a.bonusSystem.clear();
     a.level.reset(); a.player.setPosition({WIN_W/2.0f, WIN_H/2.0f}); a.player.setScale({1.0f,1.0f}); a.music.reset(a.timeLeft); a.music.setVolume(a.musicVolume);
 }
-

@@ -11,6 +11,7 @@ inline constexpr float BULLET_BIG_MULT = 2.0f;
 
 inline constexpr float LASER_CHARGE_RATE = 0.08f;
 inline constexpr float LASER_DURATION = 1.5f;
+inline constexpr float LASER_TIME_COST = 5.0f;
 inline constexpr float LASER_WIDTH = 18.0f;
 inline constexpr float LASER_DAMAGE_PER_SEC = 2.5f;
 inline constexpr float LASER_DAMAGE_PER_WAVE = 0.01f;
@@ -18,4 +19,3 @@ inline constexpr float LASER_SFX_VOLUME = 50.0f;
 inline constexpr float LASER_SFX_FADE_START = 3.0f;
 inline constexpr float LASER_SFX_FADE_DURATION = 1.0f;
 inline constexpr float LASER_SFX_START_OFFSET = 0.0f;
-
