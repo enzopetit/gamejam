@@ -9,6 +9,7 @@ namespace {
 constexpr float PI = 3.14159265f;
 constexpr float LASER_RANGE = 2200.0f;
 constexpr float PROJECTILE_DESPAWN_MARGIN = 80.0f;
+constexpr float BOSS_CONTACT_COOLDOWN = 0.45f;
 
 float dot(sf::Vector2f a, sf::Vector2f b) {
     return a.x * b.x + a.y * b.y;
@@ -186,6 +187,14 @@ void updateEnemyMotion(Enemy& e, sf::Vector2f playerPos, float rawDt, float dt) 
 void collideEnemyPlayer(App& a, Enemy& e, sf::Vector2f playerPos) {
     float collDist = PLAYER_RADIUS + e.shape.getRadius();
     if (distanceSq(e.shape.getPosition(), playerPos) >= collDist * collDist) return;
+    if (e.type == EnemyType::Boss) {
+        if (a.bossContactCooldown > 0.0f) return;
+        a.timeLeft -= 3.0f;
+        a.bossContactCooldown = BOSS_CONTACT_COOLDOWN;
+        a.shakeTimer = std::max(a.shakeTimer, SHAKE_DURATION);
+        spawnParticles(a.particles, e.shape.getPosition(), 12, sf::Color(200, 120, 220));
+        return;
+    }
     a.timeLeft -= 3.0f;
     e.alive = false;
     a.shakeTimer = SHAKE_DURATION;
@@ -301,6 +310,7 @@ void applyLaserToEnemyProjectiles(App& a, sf::Vector2f playerPos) {
 
 void updateEnemiesAndCollisions(App& a, float rawDt, float dt) {
     if (!a.level.isWaveActive()) return;
+    if (a.bossContactCooldown > 0.0f) a.bossContactCooldown = std::max(0.0f, a.bossContactCooldown - dt);
     sf::Vector2f playerPos = a.player.getPosition();
     for (auto& e : a.enemies) {
         updateEnemyMotion(e, playerPos, rawDt, dt);
