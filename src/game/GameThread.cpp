@@ -382,6 +382,7 @@ int GameThread::run() {
     float shootCooldown = 0.0f;
     float speedBoostTimer = 0.0f;
     float rapidFireTimer = 0.0f;
+    float pierceTimer = 0.0f;
     float hitstopTimer = 0.0f;
     float slowMoTimer = 0.0f;
     float flashAlpha = 0.0f;
@@ -451,6 +452,7 @@ int GameThread::run() {
         shootCooldown = 0.0f;
         speedBoostTimer = 0.0f;
         rapidFireTimer = 0.0f;
+        pierceTimer = 0.0f;
         hitstopTimer = 0.0f;
         slowMoTimer = 0.0f;
         flashAlpha = 0.0f;
@@ -658,6 +660,7 @@ int GameThread::run() {
         if (waveActive) {
             if (speedBoostTimer > 0.0f) speedBoostTimer -= dt;
             if (rapidFireTimer > 0.0f) rapidFireTimer -= dt;
+            if (pierceTimer > 0.0f) pierceTimer -= dt;
         }
 
         float speedMult = speedBoostTimer > 0.0f ? SPEED_BONUS_MULT : 1.0f;
@@ -701,11 +704,13 @@ int GameThread::run() {
         if (waveActive && sf::Mouse::isButtonPressed(sf::Mouse::Button::Left) && shootCooldown <= 0.0f) {
             if (timeLeft > BULLET_TIME_COST) {
                 Bullet b;
-                b.shape = sf::CircleShape(BULLET_RADIUS);
+                float bulletRadius = (pierceTimer > 0.0f) ? (BULLET_RADIUS * BULLET_BIG_MULT) : BULLET_RADIUS;
+                b.shape = sf::CircleShape(bulletRadius);
                 b.shape.setFillColor(sf::Color(220, 50, 30));
-                b.shape.setOrigin({BULLET_RADIUS, BULLET_RADIUS});
-                b.shape.setPosition(playerPos + aimDir * (PLAYER_RADIUS + BULLET_RADIUS + 2.0f));
+                b.shape.setOrigin({bulletRadius, bulletRadius});
+                b.shape.setPosition(playerPos + aimDir * (PLAYER_RADIUS + bulletRadius + 2.0f));
                 b.velocity = aimDir * BULLET_SPEED;
+                b.piercing = pierceTimer > 0.0f;
                 bullets.push_back(b);
                 timeLeft -= BULLET_TIME_COST;
                 shootCooldown = shootInterval;
@@ -791,14 +796,21 @@ int GameThread::run() {
                 sf::Vector2f bPos = b.shape.getPosition();
                 for (auto& e : enemies) {
                     if (!e.alive) continue;
-                    float collDist = BULLET_RADIUS + e.shape.getRadius();
+                    float bulletRadius = b.shape.getRadius();
+                    float collDist = bulletRadius + e.shape.getRadius();
                     if (distanceSq(bPos, e.shape.getPosition()) < collDist * collDist) {
-                        b.alive = false;
                         e.hp -= 1.0f;
                         e.flashTimer = 0.08f;
                         e.shape.setFillColor(sf::Color::White);
                         shakeTimer = SHAKE_DURATION * 0.5f;
                         spawnParticles(particles, bPos, 8, sf::Color(220, 50, 30));
+
+                        if (b.piercing) {
+                            sf::Vector2f dir = vecNormalize(b.velocity);
+                            b.shape.setPosition(bPos + dir * (collDist + 2.0f));
+                        } else {
+                            b.alive = false;
+                        }
 
                         if (e.hp <= 0.0f) {
                             e.alive = false;
@@ -862,7 +874,7 @@ int GameThread::run() {
         }
 
         if (waveActive) {
-            bonusSystem.update(dt, playerPos, PLAYER_RADIUS, timeLeft, speedBoostTimer, rapidFireTimer);
+            bonusSystem.update(dt, playerPos, PLAYER_RADIUS, timeLeft, speedBoostTimer, rapidFireTimer, pierceTimer);
             for (const auto& pickupPos : bonusSystem.getPickups()) {
                 spawnParticles(particles, pickupPos, 12, sf::Color(255, 255, 200));
             }
@@ -1038,18 +1050,21 @@ int GameThread::run() {
             auto buffFill = [](BonusType type) {
                 if (type == BonusType::Speed) return sf::Color(80, 200, 255);
                 if (type == BonusType::RapidFire) return sf::Color(255, 200, 80);
+                if (type == BonusType::Pierce) return sf::Color(80, 220, 120);
                 return sf::Color(255, 80, 80);
             };
 
             auto buffOutline = [](BonusType type) {
                 if (type == BonusType::Speed) return sf::Color(120, 255, 255);
                 if (type == BonusType::RapidFire) return sf::Color(255, 255, 120);
+                if (type == BonusType::Pierce) return sf::Color(140, 255, 170);
                 return sf::Color(255, 200, 50);
             };
 
             auto buffName = [](BonusType type) {
                 if (type == BonusType::Speed) return std::string("VITESSE");
                 if (type == BonusType::RapidFire) return std::string("RAPIDE");
+                if (type == BonusType::Pierce) return std::string("PERCANT");
                 return std::string("TEMPS");
             };
 
@@ -1098,6 +1113,7 @@ int GameThread::run() {
 
             drawBuff(BonusType::Speed, speedBoostTimer);
             drawBuff(BonusType::RapidFire, rapidFireTimer);
+            drawBuff(BonusType::Pierce, pierceTimer);
 
             auto formatWaveTime = [](float value) {
                 if (value < 0.0f) value = 0.0f;

@@ -11,18 +11,21 @@ namespace {
 float bonusRadius(BonusType type) {
     if (type == BonusType::Time) return 10.0f;
     if (type == BonusType::Speed) return 12.0f;
+    if (type == BonusType::Pierce) return 12.0f;
     return 12.0f;
 }
 
 sf::Color bonusColor(BonusType type) {
     if (type == BonusType::Time) return sf::Color(255, 80, 80);
     if (type == BonusType::Speed) return sf::Color(80, 200, 255);
+    if (type == BonusType::Pierce) return sf::Color(80, 220, 120);
     return sf::Color(255, 200, 80);
 }
 
 sf::Color bonusOutline(BonusType type) {
     if (type == BonusType::Time) return sf::Color(255, 200, 50);
     if (type == BonusType::Speed) return sf::Color(120, 255, 255);
+    if (type == BonusType::Pierce) return sf::Color(140, 255, 170);
     return sf::Color(255, 255, 120);
 }
 }
@@ -50,10 +53,12 @@ void BonusSystem::spawnOnKill(sf::Vector2f pos, float timeValue) {
         spawn(pos, BonusType::Speed, SPEED_BONUS_DURATION);
     } else if (roll < 40) {
         spawn(pos, BonusType::RapidFire, RAPID_FIRE_DURATION);
+    } else if (roll < 50) {
+        spawn(pos, BonusType::Pierce, PIERCE_DURATION);
     }
 }
 
-void BonusSystem::update(float dt, sf::Vector2f playerPos, float playerRadius, float& timeLeft, float& speedBoostTimer, float& rapidFireTimer) {
+void BonusSystem::update(float dt, sf::Vector2f playerPos, float playerRadius, float& timeLeft, float& speedBoostTimer, float& rapidFireTimer, float& pierceTimer) {
     pickupPositions.clear();
 
     for (auto& b : bonuses) {
@@ -72,6 +77,8 @@ void BonusSystem::update(float dt, sf::Vector2f playerPos, float playerRadius, f
                 speedBoostTimer = std::max(speedBoostTimer, b.value);
             } else if (b.type == BonusType::RapidFire) {
                 rapidFireTimer = std::max(rapidFireTimer, b.value);
+            } else if (b.type == BonusType::Pierce) {
+                pierceTimer = std::max(pierceTimer, b.value);
             }
             pickupPositions.push_back(b.shape.getPosition());
             b.alive = false;

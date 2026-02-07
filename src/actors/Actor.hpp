@@ -7,6 +7,7 @@ struct Bullet {
     sf::CircleShape shape;
     sf::Vector2f velocity;
     bool alive = true;
+    bool piercing = false;
 };
 
 struct Enemy {
@@ -32,7 +33,8 @@ struct Particle {
 enum class BonusType {
     Time,
     Speed,
-    RapidFire
+    RapidFire,
+    Pierce
 };
 
 struct Bonus {
