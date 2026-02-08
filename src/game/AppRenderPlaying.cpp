@@ -42,6 +42,7 @@ void appRenderPlaying(App& a) {
     sf::View view = a.window.getDefaultView();
     sf::Vector2f shakeOffset{0.0f,0.0f}; if (a.shakeTimer>0.0f) { shakeOffset.x = static_cast<float>((std::rand()%100)-50)/50.0f * SHAKE_INTENSITY; shakeOffset.y = static_cast<float>((std::rand()%100)-50)/50.0f * SHAKE_INTENSITY; }
     view.setCenter(view.getCenter() + shakeOffset); a.window.setView(view);
+    if (a.grassLoaded && a.grassSprite) a.window.draw(*a.grassSprite);
     a.bonusSystem.draw(a.window, a.gameTime);
     drawShockwaves(a.window, a.shockwaves);
     for (auto& p : a.particles) a.window.draw(p.shape);

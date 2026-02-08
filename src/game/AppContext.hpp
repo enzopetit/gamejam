@@ -35,4 +35,5 @@ struct App {
     std::optional<sf::Music> menuMusic; bool menuMusicLoaded=false;
     sf::Texture productionLogoTexture; std::optional<sf::Sprite> productionLogoSprite; bool productionLogoLoaded=false;
     float splashTimer=0.0f;
+    sf::Texture grassTexture; std::optional<sf::Sprite> grassSprite; bool grassLoaded=false;
 };

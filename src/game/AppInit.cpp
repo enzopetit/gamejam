@@ -1,6 +1,7 @@
 #include "game/AppFlow.hpp"
 #include "utils/FontLoader.hpp"
 
+#include <cstdlib>
 #include <ctime>
 
 void appInit(App& a) {
@@ -42,6 +43,57 @@ void appInit(App& a) {
             float drawW = static_cast<float>(s.x) * scale;
             float drawH = static_cast<float>(s.y) * scale;
             a.productionLogoSprite->setPosition({(WIN_W - drawW) * 0.5f, (WIN_H - drawH) * 0.5f});
+        }
+    }
+
+    std::srand(static_cast<unsigned>(std::time(nullptr)));
+    {
+        sf::RenderTexture rt;
+        if (rt.resize({WIN_W, WIN_H})) {
+            rt.clear(sf::Color(34, 120, 34));
+            for (int i = 0; i < 800; ++i) {
+                float x = static_cast<float>(std::rand() % WIN_W);
+                float y = static_cast<float>(std::rand() % WIN_H);
+                float r = 8.0f + static_cast<float>(std::rand() % 25);
+                int shade = std::rand() % 4;
+                sf::Color c;
+                if (shade == 0) c = sf::Color(28, 100, 28);
+                else if (shade == 1) c = sf::Color(40, 140, 35);
+                else if (shade == 2) c = sf::Color(50, 155, 40);
+                else c = sf::Color(30, 110, 30);
+                sf::CircleShape patch(r);
+                patch.setOrigin({r, r});
+                patch.setPosition({x, y});
+                patch.setFillColor(c);
+                rt.draw(patch);
+            }
+            for (int i = 0; i < 300; ++i) {
+                float x = static_cast<float>(std::rand() % WIN_W);
+                float y = static_cast<float>(std::rand() % WIN_H);
+                float w = 2.0f + static_cast<float>(std::rand() % 3);
+                float h = 6.0f + static_cast<float>(std::rand() % 10);
+                uint8_t g = static_cast<uint8_t>(90 + std::rand() % 80);
+                sf::RectangleShape blade({w, h});
+                blade.setOrigin({w * 0.5f, h});
+                blade.setPosition({x, y});
+                blade.setRotation(sf::degrees(static_cast<float>(-20 + std::rand() % 40)));
+                blade.setFillColor(sf::Color(20, g, 15));
+                rt.draw(blade);
+            }
+            for (int i = 0; i < 40; ++i) {
+                float x = static_cast<float>(std::rand() % WIN_W);
+                float y = static_cast<float>(std::rand() % WIN_H);
+                float r = 2.0f + static_cast<float>(std::rand() % 3);
+                sf::CircleShape dirt(r);
+                dirt.setOrigin({r, r});
+                dirt.setPosition({x, y});
+                dirt.setFillColor(sf::Color(80, 60, 30, 120));
+                rt.draw(dirt);
+            }
+            rt.display();
+            a.grassTexture = rt.getTexture();
+            a.grassSprite.emplace(a.grassTexture);
+            a.grassLoaded = true;
         }
     }
 
