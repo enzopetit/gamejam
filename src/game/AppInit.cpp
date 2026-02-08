@@ -30,8 +30,7 @@ void appInit(App& a) {
     a.music.setVolume(a.musicVolume);
     a.music.stop();
 
-    a.productionLogoLoaded = a.productionLogoTexture.loadFromFile("assets/ProductionLogo.png");
-    if (!a.productionLogoLoaded) a.productionLogoLoaded = a.productionLogoTexture.loadFromFile("assets/Anzoproduction.png");
+    a.productionLogoLoaded = a.productionLogoTexture.loadFromFile("assets/Anzoproduction.png");
     if (a.productionLogoLoaded) {
         a.productionLogoSprite.emplace(a.productionLogoTexture);
         sf::Vector2u s = a.productionLogoTexture.getSize();
