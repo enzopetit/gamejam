@@ -2,7 +2,7 @@
 
 #include <SFML/Graphics.hpp>
 
-enum class EnemyType { Caterpillar, Wasp, Beetle, Ant, Spider, Boss };
+enum class EnemyType { Caterpillar, Wasp, Beetle, Ant, Spider, Boss, Mosquito, Firefly, Scorpion, Ladybug };
 
 struct Enemy {
     sf::CircleShape shape;

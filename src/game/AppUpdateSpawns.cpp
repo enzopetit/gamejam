@@ -33,11 +33,35 @@ void updateSpawns(App& a, float dt) {
         for (int i = 0; i < spawnCount; ++i) {
             int roll = std::rand() % 100;
             EnemyType type;
-            if (a.level.waveIndex() < 2) type = EnemyType::Caterpillar;
-            else if (a.level.waveIndex() < 4) type = (roll < 70) ? EnemyType::Caterpillar : EnemyType::Wasp;
-            else type = (roll < 50) ? EnemyType::Caterpillar : (roll < 85 ? EnemyType::Wasp : EnemyType::Beetle);
+            int wave = a.level.waveIndex();
+            if (wave < 2) {
+                type = EnemyType::Caterpillar;
+            } else if (wave < 3) {
+                if (roll < 50) type = EnemyType::Caterpillar;
+                else if (roll < 75) type = EnemyType::Wasp;
+                else type = EnemyType::Mosquito;
+            } else if (wave < 4) {
+                if (roll < 35) type = EnemyType::Caterpillar;
+                else if (roll < 55) type = EnemyType::Wasp;
+                else if (roll < 70) type = EnemyType::Mosquito;
+                else if (roll < 85) type = EnemyType::Firefly;
+                else type = EnemyType::Ladybug;
+            } else {
+                if (roll < 15) type = EnemyType::Caterpillar;
+                else if (roll < 30) type = EnemyType::Wasp;
+                else if (roll < 45) type = EnemyType::Beetle;
+                else if (roll < 60) type = EnemyType::Mosquito;
+                else if (roll < 75) type = EnemyType::Firefly;
+                else if (roll < 88) type = EnemyType::Scorpion;
+                else type = EnemyType::Ladybug;
+            }
             float difficultyTime = a.level.waveTime() + static_cast<float>(a.level.waveIndex()) * 20.0f;
-            a.enemies.push_back(createEnemy(type, difficultyTime, a.level.waveIndex()));
+            if (type == EnemyType::Mosquito) {
+                for (int m = 0; m < 3; ++m)
+                    a.enemies.push_back(createEnemy(type, difficultyTime, a.level.waveIndex()));
+            } else {
+                a.enemies.push_back(createEnemy(type, difficultyTime, a.level.waveIndex()));
+            }
         }
     }
 }

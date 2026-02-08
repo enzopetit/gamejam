@@ -1,5 +1,7 @@
 #include "game/RenderHelpers.hpp"
 
+#include <cmath>
+
 namespace {
 bool isSmallType(EnemyType type) {
     return type == EnemyType::Caterpillar || type == EnemyType::Ant;
@@ -13,6 +15,133 @@ bool isMediumType(EnemyType type) {
 void drawEnemy(sf::RenderWindow& window, const Enemy& e, sf::Vector2f playerPos) {
     sf::Vector2f ePos = e.shape.getPosition(); sf::Vector2f sc = e.shape.getScale(); float r = e.shape.getRadius();
     sf::Vector2f dir = vecNormalize(playerPos - ePos); sf::Vector2f perp = {-dir.y, dir.x};
+
+    if (e.type == EnemyType::Mosquito) {
+        window.draw(e.shape);
+        sf::ConvexShape trompe(3);
+        trompe.setPoint(0, {-perp.x*r*0.1f, -perp.y*r*0.1f});
+        trompe.setPoint(1, {perp.x*r*0.1f, perp.y*r*0.1f});
+        trompe.setPoint(2, {dir.x*r*1.2f, dir.y*r*1.2f});
+        trompe.setFillColor(sf::Color(100, 100, 110));
+        trompe.setPosition(ePos);
+        trompe.setScale(sc);
+        window.draw(trompe);
+        sf::ConvexShape wingL(3);
+        wingL.setPoint(0, {0, 0});
+        wingL.setPoint(1, {perp.x*r*1.5f + dir.x*r*0.3f, perp.y*r*1.5f + dir.y*r*0.3f});
+        wingL.setPoint(2, {perp.x*r*0.8f - dir.x*r*0.5f, perp.y*r*0.8f - dir.y*r*0.5f});
+        wingL.setFillColor(sf::Color(200, 200, 220, 60));
+        wingL.setOutlineColor(sf::Color(180, 180, 200, 100));
+        wingL.setOutlineThickness(1.0f);
+        wingL.setPosition(ePos);
+        wingL.setScale(sc);
+        window.draw(wingL);
+        sf::ConvexShape wingR(3);
+        wingR.setPoint(0, {0, 0});
+        wingR.setPoint(1, {-perp.x*r*1.5f + dir.x*r*0.3f, -perp.y*r*1.5f + dir.y*r*0.3f});
+        wingR.setPoint(2, {-perp.x*r*0.8f - dir.x*r*0.5f, -perp.y*r*0.8f - dir.y*r*0.5f});
+        wingR.setFillColor(sf::Color(200, 200, 220, 60));
+        wingR.setOutlineColor(sf::Color(180, 180, 200, 100));
+        wingR.setOutlineThickness(1.0f);
+        wingR.setPosition(ePos);
+        wingR.setScale(sc);
+        window.draw(wingR);
+        return;
+    }
+
+    if (e.type == EnemyType::Firefly) {
+        float pulse = 0.5f + 0.5f * std::sin(e.phaseTimer * 5.0f);
+        sf::CircleShape halo(r * 2.0f);
+        halo.setOrigin({r * 2.0f, r * 2.0f});
+        halo.setPosition(ePos);
+        halo.setFillColor(sf::Color(255, 255, 100, static_cast<std::uint8_t>(40 * pulse)));
+        halo.setScale(sc);
+        window.draw(halo);
+        window.draw(e.shape);
+        sf::CircleShape glow(r * 0.6f);
+        glow.setOrigin({r * 0.6f, r * 0.6f});
+        glow.setPosition(ePos - dir * r * 0.5f);
+        glow.setFillColor(sf::Color(255, 255, 180, static_cast<std::uint8_t>(150 + 105 * pulse)));
+        glow.setScale(sc);
+        window.draw(glow);
+        return;
+    }
+
+    if (e.type == EnemyType::Scorpion) {
+        window.draw(e.shape);
+        sf::CircleShape seg1(r * 0.5f);
+        seg1.setOrigin({r * 0.5f, r * 0.5f});
+        seg1.setFillColor(sf::Color(120, 75, 30));
+        seg1.setPosition(ePos - dir * r * 1.1f);
+        seg1.setScale(sc);
+        window.draw(seg1);
+        sf::CircleShape seg2(r * 0.4f);
+        seg2.setOrigin({r * 0.4f, r * 0.4f});
+        seg2.setFillColor(sf::Color(110, 65, 25));
+        seg2.setPosition(ePos - dir * r * 1.8f);
+        seg2.setScale(sc);
+        window.draw(seg2);
+        sf::ConvexShape dard(3);
+        dard.setPoint(0, {-perp.x * r * 0.15f, -perp.y * r * 0.15f});
+        dard.setPoint(1, {perp.x * r * 0.15f, perp.y * r * 0.15f});
+        dard.setPoint(2, {-dir.x * r * 0.7f + (-dir.y) * r * 0.3f, -dir.y * r * 0.7f + dir.x * r * 0.3f});
+        dard.setFillColor(sf::Color(60, 60, 60));
+        dard.setPosition(ePos - dir * r * 2.1f);
+        dard.setScale(sc);
+        window.draw(dard);
+        sf::ConvexShape pinceL(3);
+        pinceL.setPoint(0, {0, 0});
+        pinceL.setPoint(1, {dir.x * r * 0.6f + perp.x * r * 0.4f, dir.y * r * 0.6f + perp.y * r * 0.4f});
+        pinceL.setPoint(2, {dir.x * r * 0.3f + perp.x * r * 0.6f, dir.y * r * 0.3f + perp.y * r * 0.6f});
+        pinceL.setFillColor(sf::Color(100, 55, 20));
+        pinceL.setPosition(ePos + dir * r * 0.8f + perp * r * 0.3f);
+        pinceL.setScale(sc);
+        window.draw(pinceL);
+        sf::ConvexShape pinceR(3);
+        pinceR.setPoint(0, {0, 0});
+        pinceR.setPoint(1, {dir.x * r * 0.6f - perp.x * r * 0.4f, dir.y * r * 0.6f - perp.y * r * 0.4f});
+        pinceR.setPoint(2, {dir.x * r * 0.3f - perp.x * r * 0.6f, dir.y * r * 0.3f - perp.y * r * 0.6f});
+        pinceR.setFillColor(sf::Color(100, 55, 20));
+        pinceR.setPosition(ePos + dir * r * 0.8f - perp * r * 0.3f);
+        pinceR.setScale(sc);
+        window.draw(pinceR);
+        return;
+    }
+
+    if (e.type == EnemyType::Ladybug) {
+        float pulse = 0.5f + 0.5f * std::sin(e.phaseTimer * LADYBUG_PULSE_FREQ * 2.0f * 3.14159f);
+        sf::CircleShape aura(r * 1.6f);
+        aura.setOrigin({r * 1.6f, r * 1.6f});
+        aura.setPosition(ePos);
+        aura.setFillColor(sf::Color(255, 40, 40, static_cast<std::uint8_t>(30 + 30 * pulse)));
+        aura.setScale(sc);
+        window.draw(aura);
+        window.draw(e.shape);
+        sf::RectangleShape line({r * 0.08f, r * 2.0f});
+        line.setOrigin({r * 0.04f, r * 1.0f});
+        line.setFillColor(sf::Color::Black);
+        line.setPosition(ePos);
+        line.setScale(sc);
+        window.draw(line);
+        for (int i = 0; i < 4; ++i) {
+            float offX = (i < 2) ? 0.35f : -0.35f;
+            float offY = (i % 2 == 0) ? 0.3f : -0.3f;
+            sf::CircleShape dot(r * 0.12f);
+            dot.setOrigin({r * 0.12f, r * 0.12f});
+            dot.setFillColor(sf::Color::Black);
+            dot.setPosition(ePos + perp * r * offX + dir * r * offY);
+            dot.setScale(sc);
+            window.draw(dot);
+        }
+        sf::CircleShape head(r * 0.45f);
+        head.setOrigin({r * 0.45f, r * 0.45f});
+        head.setFillColor(sf::Color(30, 30, 30));
+        head.setPosition(ePos + dir * r * 0.9f);
+        head.setScale(sc);
+        window.draw(head);
+        return;
+    }
+
     window.draw(e.shape);
     if (isSmallType(e.type)) {
         sf::CircleShape seg1(r*0.65f); seg1.setFillColor(sf::Color(60,150,60)); seg1.setOrigin({r*0.65f,r*0.65f}); seg1.setPosition(ePos - dir*r*0.9f*sc.x); seg1.setScale(sc); window.draw(seg1);

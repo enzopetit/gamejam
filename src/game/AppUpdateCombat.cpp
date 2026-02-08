@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 
 namespace {
 constexpr float PI = 3.14159265f;
@@ -170,6 +171,43 @@ float nextBossShotDelay(int phase) {
     return BOSS_SHOOT_INTERVAL;
 }
 
+void updateFireflyTeleports(App& a, float dt) {
+    for (auto& e : a.enemies) {
+        if (!e.alive || e.type != EnemyType::Firefly) continue;
+        e.shootTimer -= dt;
+        if (e.shootTimer > 0.0f) continue;
+        sf::Vector2f oldPos = e.shape.getPosition();
+        spawnParticles(a.particles, oldPos, 10, sf::Color(255, 255, 100));
+        float nx = static_cast<float>(std::rand() % WIN_W);
+        float ny = static_cast<float>(std::rand() % WIN_H);
+        e.shape.setPosition({nx, ny});
+        spawnParticles(a.particles, {nx, ny}, 10, sf::Color(255, 255, 100));
+        e.shootTimer = FIREFLY_TELEPORT_MIN + static_cast<float>(std::rand() % 100) / 100.0f * (FIREFLY_TELEPORT_MAX - FIREFLY_TELEPORT_MIN);
+    }
+}
+
+void updateScorpionAttacks(App& a, sf::Vector2f playerPos, float dt) {
+    for (auto& e : a.enemies) {
+        if (!e.alive || e.type != EnemyType::Scorpion) continue;
+        float dist = std::sqrt(distanceSq(e.shape.getPosition(), playerPos));
+        if (dist > SCORPION_ENGAGE_DISTANCE) continue;
+        e.shootTimer -= dt;
+        if (e.shootTimer > 0.0f) continue;
+        sf::Vector2f dir = vecNormalize(playerPos - e.shape.getPosition());
+        spawnEnemyProjectile(
+            a,
+            e.shape.getPosition(),
+            dir,
+            SCORPION_PROJECTILE_SPEED,
+            SCORPION_PROJECTILE_RADIUS,
+            sf::Color(180, 120, 40),
+            SCORPION_PROJECTILE_DAMAGE,
+            true
+        );
+        e.shootTimer = SCORPION_SHOOT_INTERVAL;
+    }
+}
+
 void updateBossAttacks(App& a, sf::Vector2f playerPos, float dt) {
     for (auto& e : a.enemies) {
         if (!e.alive || e.type != EnemyType::Boss) continue;
@@ -195,6 +233,17 @@ void updateEnemyProjectilesMotion(App& a, float dt) {
 
 void onEnemyKilled(App& a, Enemy& e) {
     e.alive = false;
+    if (e.type == EnemyType::Ladybug) {
+        sf::Vector2f ePos = e.shape.getPosition();
+        sf::Vector2f pPos = a.player.getPosition();
+        spawnParticles(a.particles, ePos, 30, sf::Color(255, 60, 30));
+        spawnParticles(a.particles, ePos, 20, sf::Color(255, 160, 40));
+        float dist = std::sqrt(distanceSq(ePos, pPos));
+        if (dist < LADYBUG_EXPLOSION_RADIUS) {
+            a.timeLeft = std::max(0.0f, a.timeLeft - LADYBUG_EXPLOSION_PENALTY);
+            a.shakeTimer = std::max(a.shakeTimer, SHAKE_DURATION);
+        }
+    }
     if (e.type == EnemyType::Boss) {
         a.speedBoostTimer = std::max(a.speedBoostTimer, SPEED_BONUS_DURATION);
         a.rapidFireTimer = std::max(a.rapidFireTimer, RAPID_FIRE_DURATION);
@@ -255,7 +304,19 @@ void updateEnemyMotion(Enemy& e, sf::Vector2f playerPos, float rawDt, float dt) 
     e.phaseTimer += dt;
     sf::Vector2f ePos = e.shape.getPosition();
     sf::Vector2f dir = vecNormalize(playerPos - ePos);
-    ePos += dir * e.speed * dt;
+
+    if (e.type == EnemyType::Mosquito) {
+        sf::Vector2f perp = {-dir.y, dir.x};
+        float zigzag = std::sin(e.phaseTimer * MOSQUITO_ZIGZAG_FREQ) * MOSQUITO_ZIGZAG_AMP;
+        ePos += (dir + perp * (zigzag / e.speed)) * e.speed * dt;
+    } else if (e.type == EnemyType::Scorpion) {
+        float dist = std::sqrt(distanceSq(ePos, playerPos));
+        if (dist > SCORPION_ENGAGE_DISTANCE)
+            ePos += dir * e.speed * dt;
+    } else {
+        ePos += dir * e.speed * dt;
+    }
+
     e.shape.setPosition(ePos);
     if (e.flashTimer > 0.0f) {
         e.flashTimer -= dt;
@@ -398,6 +459,8 @@ void updateEnemiesAndCollisions(App& a, float rawDt, float dt) {
         collideEnemyPlayer(a, e, playerPos);
     }
     updateBossAttacks(a, playerPos, dt);
+    updateFireflyTeleports(a, dt);
+    updateScorpionAttacks(a, playerPos, dt);
     updateEnemyProjectilesMotion(a, dt);
     collideEnemyProjectilesWithPlayer(a, playerPos);
     a.comboTimer -= dt;

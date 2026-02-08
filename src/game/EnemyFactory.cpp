@@ -40,6 +40,36 @@ Enemy createEnemy(EnemyType type, float difficultyTime, int waveIndex) {
             e.speed = ENEMY_BASE_SPEED * 0.6f * speedMult;
             e.timeDrop = 3.0f;
             break;
+        case EnemyType::Mosquito:
+            e.shape = sf::CircleShape(MOSQUITO_RADIUS);
+            e.baseColor = sf::Color(160, 160, 170);
+            e.hp = MOSQUITO_HP; e.maxHp = MOSQUITO_HP;
+            e.speed = MOSQUITO_SPEED * speedMult;
+            e.timeDrop = MOSQUITO_TIME_DROP;
+            break;
+        case EnemyType::Firefly:
+            e.shape = sf::CircleShape(FIREFLY_RADIUS);
+            e.baseColor = sf::Color(255, 240, 80);
+            e.hp = FIREFLY_HP; e.maxHp = FIREFLY_HP;
+            e.speed = FIREFLY_SPEED * speedMult;
+            e.timeDrop = FIREFLY_TIME_DROP;
+            e.shootTimer = FIREFLY_TELEPORT_MIN + static_cast<float>(std::rand() % 100) / 100.0f * (FIREFLY_TELEPORT_MAX - FIREFLY_TELEPORT_MIN);
+            break;
+        case EnemyType::Scorpion:
+            e.shape = sf::CircleShape(SCORPION_RADIUS);
+            e.baseColor = sf::Color(140, 90, 40);
+            e.hp = SCORPION_HP; e.maxHp = SCORPION_HP;
+            e.speed = SCORPION_SPEED * speedMult;
+            e.timeDrop = SCORPION_TIME_DROP;
+            e.shootTimer = SCORPION_SHOOT_INTERVAL * 0.5f;
+            break;
+        case EnemyType::Ladybug:
+            e.shape = sf::CircleShape(LADYBUG_RADIUS);
+            e.baseColor = sf::Color(220, 40, 40);
+            e.hp = LADYBUG_HP; e.maxHp = LADYBUG_HP;
+            e.speed = LADYBUG_SPEED * speedMult;
+            e.timeDrop = LADYBUG_TIME_DROP;
+            break;
         case EnemyType::Boss:
             e.shape = sf::CircleShape(BOSS_RADIUS);
             e.baseColor = sf::Color(170, 60, 190);
